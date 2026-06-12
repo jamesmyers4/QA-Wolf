@@ -10,13 +10,15 @@ export async function getArticleTimestamps(
   // scoped to current page only, loop accumulates across pages
   const timestamps: number[] = [];
 
+  await page.waitForLoadState('networkidle')
+
   while (
     await page
       .locator("body")
       .innerText()
       .then((t) => t.includes("Sorry"))
   ) {
-    await page.waitForTimeout(5000);
+    await page.waitForTimeout(8000);
     await page.reload();
     await page.waitForLoadState("networkidle");
   }
