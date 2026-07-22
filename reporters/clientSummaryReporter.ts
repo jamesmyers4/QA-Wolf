@@ -10,12 +10,17 @@ import type {
 } from "@playwright/test/reporter";
 import { formatViolation, type SortAnalysis } from "../helpers/sortAnalysis";
 
+interface A11ySummary {
+  summaryLine: string;
+}
+
 interface SummaryEntry {
   title: string;
   status: TestResult["status"];
   durationMs: number;
   analysis: SortAnalysis | undefined;
   driftCount: number;
+  a11y: A11ySummary | undefined;
 }
 
 const DIVIDER = "─".repeat(72);
@@ -41,10 +46,20 @@ function describeEntry(entry: SummaryEntry): string {
     );
     return `✗ ${entry.title} — ${analysis.violations.length} of ${analysis.total} articles out of order:\n${violationLines.join("\n")}${describeDrift(entry)}`;
   }
+  if (entry.a11y && entry.status === "passed") {
+    return `✓ ${entry.a11y.summaryLine} — ${entry.title}`;
+  }
+  if (entry.a11y && entry.status !== "passed") {
+    return `✗ ${entry.title} — ${entry.a11y.summaryLine.replace(/\n/g, "\n    ")}`;
+  }
   if (entry.status === "passed") {
     return `✓ ${entry.title} (${(entry.durationMs / 1000).toFixed(1)}s)`;
   }
-  return `✗ ${entry.title} — test ${entry.status} before sort analysis could complete; the HTML report (artifacts/html-report) has the full trace and screenshots`;
+  if (entry.status === "skipped" || entry.status === "interrupted") {
+    return `○ ${entry.title} — not run: a prior check in its group failed, so this one was skipped rather than reported as broken`;
+  }
+  const verb = entry.status === "timedOut" ? "timed out" : "failed";
+  return `✗ ${entry.title} — this check ${verb} before completing; the HTML report (artifacts/html-report) has the full trace and screenshots`;
 }
 
 class ClientSummaryReporter implements Reporter {
@@ -68,12 +83,19 @@ class ClientSummaryReporter implements Reporter {
     const driftCount = driftAttachment?.body
       ? (JSON.parse(driftAttachment.body.toString("utf-8")) as unknown[]).length
       : 0;
+    const a11yAttachment = result.attachments.find(
+      (candidate) => candidate.name === "a11y-summary.json",
+    );
+    const a11y = a11yAttachment?.body
+      ? (JSON.parse(a11yAttachment.body.toString("utf-8")) as A11ySummary)
+      : undefined;
     this.entries.push({
       title: test.title,
       status: result.status,
       durationMs: result.duration,
       analysis,
       driftCount,
+      a11y,
     });
   }
 

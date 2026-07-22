@@ -1,0 +1,90 @@
+[
+  {
+    "ruleId": "color-contrast",
+    "target": ".age[title=\"*\"] > a[href=\"*\"]"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": ".subline > a[href=\"*\"]"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": ".topsel > a[href$=\"*\"]"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": ".yclinks"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "#* > .title:nth-child(*) > .titleline > .sitebit.comhead > a > .sitestr"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "#* > .title:nth-child(*) > .titleline > .sitebit.comhead > a[href=\"*\"] > .sitestr"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "#* > .title[align=\"*\"][valign=\"*\"] > .rank"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "#score_*"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "a[href=\"*\"]"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "a[href=\"*\"] > .sitestr"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "form"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "span[title=\"*\"] > a[href=\"*\"]"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "tr:nth-child(*) > .subtext > .subline"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "tr:nth-child(*) > .subtext > .subline > .hnpast"
+  },
+  {
+    "ruleId": "color-contrast",
+    "target": "tr:nth-child(*) > .subtext > .subline > .hnuser[href=\"*\"]"
+  },
+  {
+    "ruleId": "image-alt",
+    "target": "img[src=\"*\"]"
+  },
+  {
+    "ruleId": "image-alt",
+    "target": "img[src$=\"*\"]"
+  },
+  {
+    "ruleId": "label",
+    "target": "input"
+  },
+  {
+    "ruleId": "landmark-one-main",
+    "target": "html"
+  },
+  {
+    "ruleId": "link-name",
+    "target": "a[href$=\"*\"]"
+  },
+  {
+    "ruleId": "page-has-heading-one",
+    "target": "html"
+  },
+  {
+    "ruleId": "region",
+    "target": "body > center"
+  }
+]

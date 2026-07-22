@@ -212,3 +212,70 @@ The structural checks load exactly one page each of /ask, /show, /front, and two
 ### Verification
 
 `npx tsc --noEmit` clean. `npm test` fully green: 12 tests (7 chromium + 5 db) in 15.4s against live HN, after a deliberate two-minute cool-off from the rate-limit encounter documented above. The rate limiting during the second verification run is reported here explicitly: it surfaced a real ordering bug, was fixed, and the final run passed without interference. Zero comments in any .ts file.
+
+---
+
+## 2026-07-22 — Session 5: Accessibility Audit + Unit Layer
+
+### Overview
+
+Two new dimensions this session: an axe-core accessibility scan of /newest asserted against a committed baseline, and a Vitest unit layer proving the suite's own pure logic can actually fail. The a11y work produced the most instructive engineering problem of the session — a baseline keyed on raw axe selectors is unstable by construction on a live feed, and making it stable required deciding what an accessibility finding *is* on a page whose content changes every minute.
+
+### Key Decisions
+
+**Baseline instead of hard fail**
+HN is a table-layout site from 2007; a raw axe run finds real violations (color contrast across nearly every text element, missing landmarks, unlabeled search input). Failing the suite on them would be noise a client never asked for and can't act on. Instead the scan writes the full results to `artifacts/a11y-report.json`, and the assertion is: no NEW findings beyond the committed `a11y-baseline.json`. This is exactly how a11y testing gets adopted on legacy client sites — freeze the debt, block the regressions — and the first run generates the baseline if the file is absent.
+
+**Selector normalization — the baseline was unstable by construction until targets were canonicalized**
+The first generated baseline had 277 entries, and it would have failed the very next run: axe's target selectors embed live-feed content. Five distinct churn vectors surfaced across iterations: story-id hrefs (`a[href="item?id=49004732"]`), username hrefs (`user?id=pg`), timestamp title attributes on age cells, numeric row ids in three spellings (`#49004732`, CSS-escaped `#\34 9004736` because CSS ids can't start with a raw digit, and prefixed `#score_49005509`), and `nth-child` positions that shift as stories move. The fix is `normalizeTarget` in `helpers/a11yAnalysis.ts`: attribute values become `"*"`, `nth-child(N)` becomes `nth-child(*)`, and all three id spellings collapse to `#*`/`#score_*`. The principle: on a live feed, WHICH story exhibits a legacy finding is noise; the rule plus the structural path is the signal. 277 raw findings collapse to 22 stable structural ones, verified stable across runs minutes apart with fully different story sets.
+
+**Findings dedupe on the normalized key**
+`extractFindings` collapses duplicate (rule, normalized target) pairs, so a hypothetical new violation appearing on all 30 story rows reads as one client-report line, not thirty. The summary line also surfaces `resolvedCount` — baseline entries that no longer occur — phrased as "the baseline can be tightened," which is the maintenance conversation a client should be invited into.
+
+**`unit/a11yAnalysis.spec.ts` added beyond the brief's three named files**
+The churn failure mode was discovered live, which is precisely the argument for unit coverage: the comparison logic is pure, its most dangerous bug (false "new" violations from feed churn) is invisible in a single green run, and mutation-style cases pin it down — same rule on different stories passes, new rule fails, known rule at a new structural location fails.
+
+**`testInfo.config.rootDir` is the testDir, not the repo root**
+First a11y run wrote the baseline into `tests/`. Playwright's `config.rootDir` defaults to the test directory; the spec now derives the repo root from `dirname(testInfo.config.configFile)`, the same technique the reporter already used.
+
+**Mutation-style unit cases prove the sort validator can fail**
+`unit/sortAnalysis.spec.ts` covers: sorted input → zero violations; a single adjacent swap → exactly one violation at exactly rank 6 with exactly 60s drift; fully reversed → n−1 violations; equal timestamps → legal ties; empty and single-element lists. A test that can't fail is worse than no test — these are the cases that would catch someone breaking the comparison operator or the tie rule.
+
+**Fake timers for `withBackoff`, real randomness bounds for `backoffDelay`**
+The backoff unit tests mock `Math.random` to pin the exponential doubling and the maxMs cap, then run 200 unmocked samples to bound jitter in [raw, raw × 1.25]. `withBackoff` runs under Vitest fake timers with `runAllTimersAsync`; the exhaustion case attaches its rejection handler before advancing timers so the expected failure never surfaces as an unhandled rejection. Retry semantics covered: success passes through untouched, non-retryable errors rethrow the original error object after exactly one call, retryable errors exhaust exactly maxAttempts.
+
+**Vitest and Playwright globs cannot overlap**
+`vitest.config.ts` includes only `unit/**/*.spec.ts`; Playwright's testDir remains `./tests`. Neither runner can ever pick up the other's files. `test:all` chains `test:unit` then `npm test` — unit first because it is free and fails fastest.
+
+**Reporter integration via the existing attachment channel**
+The a11y spec attaches `a11y-summary.json`; `clientSummaryReporter` renders its one plain-language line ("Accessibility: 0 new violations vs baseline (22 known legacy findings tracked)") in the console block and `results-summary.md`, the same pattern the sort analysis and drift attachments already use.
+
+### Verification
+
+`npx tsc --noEmit` clean. `npm run test:unit`: 32 tests across 4 files green in ~200ms. `npm run test:a11y` green twice against the committed baseline with different live story sets, `artifacts/a11y-report.json` produced. `npm run test:all` required three attempts, reported here explicitly: the first hit HN's rate-limit page during the UI scrape (the bounded backoff failed loudly after 5 attempts, as designed), and the second hit `read ECONNRESET` from the Firebase API on item fetches — connection resets, plausibly from the day's cumulative request volume, on both API-consuming specs. After an eight-minute cool-off the third run was fully green: 32 unit + 13 Playwright tests in 16.7s. The ECONNRESET observation is recorded as noticed-but-not-touched: `getApiRecords` treats only `PendingItemError` as retryable, so transient network resets fail immediately — defensible strictness, but worth a deliberate decision in a future session rather than a scope creep tonight. Zero comments in any .ts file.
+
+---
+
+## 2026-07-22 — Pending Fixes (pre-Session 6): Transient Retries, Bounded Concurrency, Honest Reporter Wording
+
+### Overview
+
+Three amendments from PENDING-FIXES.md, executed before Session 6 proper. The failure mode they address had occurred three times across two evenings: ECONNRESET during the Session 4 verification, ECONNRESET again during Session 5 verification run two, and misleading reporter wording on every non-pass along the way.
+
+### Key Decisions
+
+**Transient network errors are now retryable — and the classification lives with the backoff, not the caller**
+`isTransientNetworkError` in `helpers/withBackoff.ts` is a pure function with no Playwright dependency, so the unit layer covers it directly. It matches ECONNRESET, ETIMEDOUT, EAI_AGAIN, and "socket hang up" against both the error message and any `code` property, because Playwright's request layer surfaces Node socket errors as message text (`apiRequestContext.get: read ECONNRESET`) rather than a code. The marker list is a whitelist: non-Error values, 4xx-style failures, and malformed-response errors still fail immediately, so genuine defects keep failing loudly instead of burning four retry attempts.
+
+**Bounded concurrency closes the June loop**
+The original June session log explicitly predicted this: "Batching was considered to avoid ECONNRESET from Firebase rate limiting on 100 simultaneous requests" — considered, then deferred. The prediction then came true three times, which is the live evidence the deferral needed revisiting. `getApiRecords` now fetches item records in chunks of 10 (`ITEM_FETCH_CONCURRENCY`), sequential between chunks and parallel within one, and the per-item fetch moved into a named `fetchItemRecord` function so the chunk loop reads in one glance. Peak simultaneous Firebase connections drop from 100 to 10; total request count is unchanged.
+
+**The reporter no longer claims sort analysis on tests that never analyze sort**
+The old fallback line said "test failed before sort analysis could complete" for every non-pass — including a11y, list-structure, and db checks that perform no sort analysis, and including serial-mode tests that never ran at all. Two honest paths now: skipped/interrupted tests render as `○ title — not run: a prior check in its group failed, so this one was skipped rather than reported as broken`, and real failures render with a status-accurate verb (failed / timed out) and wording generic enough to fit any check, still pointing at the HTML report for evidence. A client reading the summary can now tell "this check found nothing because it never looked" apart from "this check looked and broke."
+
+**Seven new unit cases, including the forced transient failure the checklist required**
+`unit/withBackoff.spec.ts` grew a classification block (each marker via message, the wrapped Playwright message shape, a bare `code` property, non-transient rejections, non-Error values) plus two integration paths through `withBackoff` itself: a simulated `read ECONNRESET` that retries to success under fake timers — the forced transient failure exercised in a unit test, never against live Firebase — and a 404-style error that rethrows the original error object after exactly one call.
+
+### Verification
+
+`npx tsc --noEmit` clean. `npm run test:unit`: 39 tests across 4 files green. `npm test` required three runs, reported explicitly per the house rule: runs one and two (the second after a 10-minute cool-off) both hit HN's "Sorry" rate-limit page during the /newest UI scrape — the unchanged `settleRateLimit` path exhausted its five attempts as designed, while the Firebase API tests with the new chunked fetches passed in both runs. After a further 30-minute cool-off the third run was fully green: 13 tests in 49.0s, including a 34.3s /ask test where the settling logic absorbed a mid-run "Sorry" page and recovered — the resilience path working instead of failing. The two rate-limited runs doubled as a live demonstration of Fix 3: honest ✗ wording on the two blocked checks and ○ not-run lines on the four serial-skipped db checks. Zero comments in any .ts file. PENDING-FIXES.md deleted per its own instruction.

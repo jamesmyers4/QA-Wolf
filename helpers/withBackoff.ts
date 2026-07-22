@@ -4,6 +4,22 @@ export interface BackoffOptions {
   maxMs: number;
 }
 
+const TRANSIENT_NETWORK_MARKERS = [
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+  "socket hang up",
+];
+
+export function isTransientNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const code = (err as { code?: unknown }).code;
+  const haystacks = [err.message, typeof code === "string" ? code : ""];
+  return TRANSIENT_NETWORK_MARKERS.some((marker) =>
+    haystacks.some((haystack) => haystack.includes(marker)),
+  );
+}
+
 export function backoffDelay(attempt: number, opts: BackoffOptions): number {
   const raw = Math.min(opts.baseMs * 2 ** attempt, opts.maxMs);
   const jitter = Math.random() * 0.25 * raw;

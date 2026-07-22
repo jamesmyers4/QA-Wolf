@@ -10,6 +10,9 @@
     "test:api": "playwright test --project=chromium tests/api.spec.ts",
     "test:list": "playwright test --project=chromium tests/list-pages.spec.ts",
     "test:db": "playwright test --project=db",
+    "test:a11y": "playwright test --project=chromium tests/a11y.spec.ts",
+    "test:unit": "vitest run",
+    "test:all": "npm run test:unit && npm test",
     "demo:fail": "playwright test --project=demo-fail",
     "typecheck": "tsc --noEmit"
   },
@@ -17,8 +20,10 @@
     "playwright": "^1.61.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

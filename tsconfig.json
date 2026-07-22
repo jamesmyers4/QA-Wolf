@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["tests/**/*.ts", "pages/**/*.ts", "helpers/**/*.ts", "reporters/**/*.ts", "db/**/*.ts", "playwright.config.ts"]
+  "include": ["tests/**/*.ts", "pages/**/*.ts", "helpers/**/*.ts", "reporters/**/*.ts", "db/**/*.ts", "unit/**/*.ts", "playwright.config.ts", "vitest.config.ts"]
 }
