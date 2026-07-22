@@ -1,0 +1,43 @@
+name: tests
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    # Every push: typecheck + Vitest unit layer. Zero network traffic — these
+    # never touch Hacker News, so they are safe to run on every commit.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:unit
+
+  full-suite:
+    # The full Playwright suite hits live Hacker News. Running it on every push
+    # would hammer a production site from CI for no added signal, so it is
+    # manual workflow_dispatch only — read-only etiquette applies to CI the
+    # same as to local runs.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run test:all
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: artifacts
+          path: artifacts/

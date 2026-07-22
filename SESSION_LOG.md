@@ -279,3 +279,36 @@ The old fallback line said "test failed before sort analysis could complete" for
 ### Verification
 
 `npx tsc --noEmit` clean. `npm run test:unit`: 39 tests across 4 files green. `npm test` required three runs, reported explicitly per the house rule: runs one and two (the second after a 10-minute cool-off) both hit HN's "Sorry" rate-limit page during the /newest UI scrape — the unchanged `settleRateLimit` path exhausted its five attempts as designed, while the Firebase API tests with the new chunked fetches passed in both runs. After a further 30-minute cool-off the third run was fully green: 13 tests in 49.0s, including a 34.3s /ask test where the settling logic absorbed a mid-run "Sorry" page and recovered — the resilience path working instead of failing. The two rate-limited runs doubled as a live demonstration of Fix 3: honest ✗ wording on the two blocked checks and ○ not-run lines on the four serial-skipped db checks. Zero comments in any .ts file. PENDING-FIXES.md deleted per its own instruction.
+
+---
+
+## 2026-07-22 — Session 6: README, CI, and Submission Package
+
+### Overview
+
+The sales layer over the engineering. README rewritten above the divider as the five-minute reviewer path: thesis paragraph, guided tour mapped explicitly to QA Wolf's three published criteria, architecture diagram, run instructions with a script table, and a "Decisions worth reading" list deep-linking into this log. GitHub Actions workflow added, LOOM-OUTLINE.md written with a timed two-minute script and the submission checklist, and the fresh-clone verification executed for real.
+
+### Key Decisions
+
+**README structured around their criteria, not around the code**
+A reviewer reads the FAQ criteria before they read anyone's submission, so the guided tour uses their three headings verbatim and files every feature under one. Anything that couldn't be filed under a criterion didn't make the README — the CLAUDE.md one-sentence rule applied to prose. Target reading time under three minutes; the depth lives behind links into this log rather than inline, because the README's job is to make a reviewer want to open SESSION_LOG.md, not to replace it. Original QA Wolf content below the divider untouched, verified byte-identical via git diff.
+
+**CI runs the unit layer on every push; the full suite is manual dispatch only**
+`.github/workflows/tests.yml` has two jobs: typecheck + Vitest on push (zero network traffic, safe on every commit), and the full Playwright suite behind `workflow_dispatch`. Every-push CI against live HN would be exactly the impolite traffic the rest of this repo is engineered to avoid, and a suite whose green depends on a production site's rate limiter would train anyone watching the repo to ignore red. The reasoning is stated in a YAML comment in the workflow itself — YAML comments being exempt from the no-comment rule since the file is configuration a reviewer reads in place, with no session log alongside it on GitHub. The full-suite job uploads `artifacts/` so a dispatched run's client summary and HTML report are downloadable.
+
+**Node floor stated as 22.5+**
+The README's run section states the `node:sqlite` dependency floor from Session 3 and that development happened on Node 24; CI pins Node 24 to match.
+
+**LOOM-OUTLINE.md left tracked**
+The brief left gitignoring it as Jimmy's call at commit time. It stays visible to the reviewer deliberately: a timed script is itself evidence of intentionality, and the submission checklist documents the fresh-clone discipline. Easy to gitignore before committing if Jimmy prefers the video to feel unscripted.
+
+**Fresh-clone verification: one rate-limit encounter, then fully green**
+Cloned the repo to a temp directory, `npm i`, `npx playwright install chromium`, `npm run test:all` — the point being no machine-local assumptions (the node_modules-free clone, the lockfile install, and the artifacts-free tree are what a reviewer's machine looks like). First run: 12 of 13 passed; the /newest UI scrape hit HN's "Sorry" page and the bounded backoff exhausted its five attempts with the designed loud failure. After a ten-minute cool-off the rerun was fully green — 39 unit + 13 Playwright tests in 1.4m, with the /front and /newest checks each absorbing a mid-run "Sorry" page through `settleRateLimit` (33.8s and 34.7s durations) and recovering. Both runs reported here per the house rule. The clone was of HEAD, which predates this session's README/CI/Loom files — those don't affect the suite; the submission checklist has the fresh-clone check re-run after the final commit regardless.
+
+### The arc, June to now
+
+The June submission was a competent two-test script: UI scrape plus Firebase check, POM and helper structure, honest documentation — and an excuse where the data layer should have been. The resubmission kept the honest documentation habit and replaced everything else. Session 1 made the foundation deterministic: bounded backoff instead of an infinite reload loop, id-change waits instead of sleeps, strict TypeScript on a current toolchain. Session 2 made failures speak client language and attached the evidence to prove them — and the diagnostics paid for themselves the same night, turning a Firebase eventual-consistency race from a mystery flake into a one-line root cause. Session 3 removed the June excuse by building the database: a SQLite mirror validating sort, uniqueness, quality, and cross-layer agreement in raw SQL, plus the pagination-drift classification separating environmental churn from product defects. Session 4 cashed in the architecture claim — four list pages as one-line subclasses — and added Algolia as a second independent oracle, while a live rate-limit encounter exposed and fixed a real sequencing bug in the resilience path. Session 5 tested the tests: 39 mutation-style unit cases proving the validators can fail, and an a11y baseline made stable against a page whose content changes every minute. The pending-fixes session closed a loop the June log had opened — "batching was considered" became bounded concurrency after the predicted ECONNRESET arrived three times. Session 6 packaged it. The thesis held from the first brief: a 100-article sort check, treated like a client's production suite.
+
+### Verification
+
+`npx tsc --noEmit` clean. `npm run test:unit` green (39 tests). Workflow YAML parses (js-yaml), and its unit job runs exactly the two commands verified locally. README below-divider content confirmed unchanged via git diff — every changed line sits above the divider. Fresh-clone `npm run test:all` fully green on the second run as detailed above, rate-limit interference on the first run reported explicitly.

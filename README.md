@@ -1,28 +1,77 @@
 # 🐺 QA Wolf Take Home Assignment (Jimmy Myers)
 
-## Decisions
+The assignment: validate that exactly the first 100 articles on [Hacker News /newest](https://news.ycombinator.com/newest) are sorted newest to oldest. This repo treats that one check the way I'd treat a client's production suite — full-pyramid coverage (unit → API → UI → data layer), deterministic waits, bounded backoff against a live site, and failure output a non-technical client could act on. Every decision has a written rationale in [SESSION_LOG.md](SESSION_LOG.md).
 
-Page Object Model: Most convenient way to structure a complex test suite - Minimizes future updates when something changes.
+## Guided tour — mapped to your three criteria
 
-Helpers: Same reasons as going with POM - convenient way for a QA team to keep up with changes over time - minimizing the amount of work needed.
+### Technical ability
 
-## Test Coverage
+- **Full testing pyramid.** 39 Vitest unit tests over the suite's own pure logic, API validation against two independent oracles (HN's Firebase API reconciled with Algolia's `search_by_date`), UI validation through a Page Object Model, and a SQLite mirror that re-validates the sort in raw SQL. The June submission called a DB layer "outside the scope of this exercise as it requires internal database access" — I disagreed, so this version builds the database: every run ingests both layers into `artifacts/hn-mirror.db` and asserts sort integrity, uniqueness, data quality, and cross-layer agreement at the SQL level.
+- **Zero non-deterministic waits.** No `networkidle`, no sleeps. Pagination waits on the first story row's id changing — an auto-retrying assertion on the thing we actually need.
+- **Deliberate resilience.** Exponential backoff with jitter and a hard attempt cap (`helpers/withBackoff.ts`) handles HN's "Sorry" rate-limit page and transient network errors; a persistently blocked run fails loudly with a clear message instead of hanging.
+- **Pagination drift classification.** HN inserts new stories mid-run, shifting items across page boundaries. Story-id tracking distinguishes that environmental drift from an actual sort defect, classifies it in the diagnostics, and excludes it from analysis — flake source and product defect are never conflated.
 
-### UI Test — Playwright
+### Customer service orientation
 
-Validates the first 100 articles on /newest are sorted newest to oldest by comparing ISO timestamps from the DOM.
+- **A client-language reporter.** `reporters/clientSummaryReporter.ts` prints a plain-English summary block and writes `artifacts/results-summary.md` — pass or fail, in sentences, not stack traces.
+- **Per-violation diagnostics.** A failure reads `Sort violation at rank 4: "Article title" (posted 2026-07-21T14:09:27 UTC) appears 94s newer than rank 3` — every violation, with drift in seconds, not just the first bad pair.
+- **`npm run demo:fail`.** A fixture with engineered inversions runs the real analysis → report path on demand, so the failure diagnostics can be seen without waiting for HN to actually break. It exits 1 by design — the red exit is part of the demonstration.
+- **Evidence attached everywhere.** Raw article records, sort analysis, drift events, and failure screenshots land in the HTML report via `testInfo.attach`.
 
-### API Test — Playwright request
+### Mission & values alignment
 
-Validates the HN Firebase API returns newest story IDs in descending order by fetching each item's Unix timestamp directly.
+- **[SESSION_LOG.md](SESSION_LOG.md)** is the paper trail of intentionality: every session's decisions, trade-offs, and the two rate-limit encounters reported honestly instead of retried into silence.
+- **Accessibility with a baseline, not noise.** HN is a table-layout site from 2007; a raw axe scan fails everything. The suite freezes 22 known legacy findings in a committed baseline (selector-normalized to survive a live feed) and fails only on new violations — how a11y actually gets adopted on legacy client sites.
+- **Knowing what not to assert.** /front, /ask, and /show are score-ranked, so they get structural and data-quality checks, never newest→oldest assertions that would fail on correct behavior.
+- **Read-only etiquette.** Single worker, one page load per list page, Firebase item fetches bounded to 10 concurrent, and CI never hits HN automatically.
 
-### Recommended: Backend/DB Test — Jest or Vitest
+## Architecture
 
-A third layer would validate the data at the source — confirming the database query powering /newest applies the correct ORDER BY before it ever reaches the UI or API. This layer is outside the scope of this exercise as it requires internal database access.
+```
+┌─ tests/        thin specs: ui, api, list-pages, a11y, db, demo-fail
+├─ pages/        HNListPage base class + one-line-per-page subclasses, shared StoryRow
+├─ helpers/      scraping, sort/structure/a11y analysis, backoff, rate-limit settling
+├─ db/           SQLite mirror: schema, ingestion, SQL sort assertions (node:sqlite)
+├─ reporters/    clientSummaryReporter → console block + artifacts/results-summary.md
+├─ unit/         Vitest over the pure helpers — the suite's own logic, tested
+└─ artifacts/    gitignored output: HTML report, JSON evidence, hn-mirror.db, a11y report
+```
 
-## SESSION_LOG.md
+Complexity lives in `pages/`, `helpers/`, and `db/`; every spec file reads in one screen. Adding a fifth HN list page is one subclass with a URL string. Chromium-only on purpose: sort validation isn't rendering-dependent, and one browser keeps run time and HN traffic down.
 
-More Details, decisions, and reasoning for the task. Useful for keeping track of changing over time and why things are the way they are (good documentation - can be converted into various reports or official documentation later(Confluence, Jira, or similar)).
+## Run it
+
+Requires Node ≥ 22.5 (the SQLite mirror uses the built-in `node:sqlite` — no native builds; developed on Node 24).
+
+```
+npm i
+npx playwright install chromium
+npm run test:all
+```
+
+| Script                  | What it does                                                        |
+| ----------------------- | ------------------------------------------------------------------- |
+| `npm test`              | Full Playwright suite: UI, API, list pages, a11y, DB mirror         |
+| `npm run test:all`      | Unit layer first (free, fails fastest), then the full suite         |
+| `npm run test:unit`     | Vitest over the pure helpers                                        |
+| `npm run test:ui`       | /newest UI sort validation only                                     |
+| `npm run test:api`      | Firebase + Algolia API validation only                              |
+| `npm run test:db`       | SQLite mirror ingestion + SQL assertions only                       |
+| `npm run test:list`     | Structural checks on /front, /ask, /show, /newest                   |
+| `npm run test:a11y`     | Axe scan of /newest against the committed baseline                  |
+| `npm run demo:fail`     | On-demand failure diagnostics from a shuffled fixture (exits 1)     |
+| `npm run typecheck`     | `tsc --noEmit` under strict mode                                    |
+
+CI runs typecheck + unit tests on every push; the full suite is manual-dispatch only so CI never hammers a live production site.
+
+## Decisions worth reading
+
+- [Bounded backoff replacing an unbounded rate-limit loop](SESSION_LOG.md#2026-07-21--session-1-foundation--hygiene) — Session 1
+- [A Firebase eventual-consistency race the diagnostics caught on day one](SESSION_LOG.md#2026-07-21--session-2-diagnostics--client-facing-reporting) — Session 2
+- [Pagination drift: environment vs defect, and the "14:9:27" mystery](SESSION_LOG.md#2026-07-21--session-3-data-layer--sqlite-mirror) — Session 3
+- [What not to assert on score-ranked pages](SESSION_LOG.md#2026-07-21--session-4-coverage-expansion-across-hn) — Session 4
+- [The a11y baseline, and making it stable on a page that changes every minute](SESSION_LOG.md#2026-07-22--session-5-accessibility-audit--unit-layer) — Session 5
+- [Closing the June ECONNRESET prediction with bounded concurrency](SESSION_LOG.md#2026-07-22--pending-fixes-pre-session-6-transient-retries-bounded-concurrency-honest-reporter-wording) — pre-Session 6
 
 ---ORIGINAL README.md---
 
