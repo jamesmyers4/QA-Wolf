@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { HNNewestPage } from "../pages/HNNewestPage";
-import { withBackoff } from "./withBackoff";
+import { settleRateLimit } from "./settleRateLimit";
+import { parseAgeTitle } from "./structureAnalysis";
 import type { ArticleRecord } from "./sortAnalysis";
 
 export interface PaginationDriftEvent {
@@ -14,28 +15,6 @@ export interface PaginationDriftEvent {
 export interface ScrapeResult {
   records: ArticleRecord[];
   driftEvents: PaginationDriftEvent[];
-}
-
-class RateLimitError extends Error {
-  constructor() {
-    super("Hacker News served its rate-limit page ('Sorry')");
-    this.name = "RateLimitError";
-  }
-}
-
-async function settleRateLimit(page: Page): Promise<void> {
-  let blocked = false;
-  await withBackoff(
-    async () => {
-      if (blocked) await page.reload();
-      const bodyText = await page.locator("body").innerText();
-      if (bodyText.includes("Sorry")) {
-        blocked = true;
-        throw new RateLimitError();
-      }
-    },
-    (err) => err instanceof RateLimitError,
-  );
 }
 
 export async function getArticleRecords(
@@ -77,11 +56,9 @@ export async function getArticleRecords(
       const ageTitle = await story.age.getAttribute("title");
       if (!ageTitle)
         throw new Error(`Missing timestamp for "${title}" at rank ${rank}`);
-      const [isoTimestamp, unixPart] = ageTitle.split(" ");
-      const unixTime = unixPart
-        ? Number(unixPart)
-        : Math.floor(new Date(`${isoTimestamp}Z`).getTime() / 1000);
-      if (!Number.isFinite(unixTime))
+      const [isoTimestamp] = ageTitle.split(" ");
+      const unixTime = parseAgeTitle(ageTitle);
+      if (unixTime === null)
         throw new Error(
           `Unparseable timestamp "${ageTitle}" for "${title}" at rank ${rank}`,
         );

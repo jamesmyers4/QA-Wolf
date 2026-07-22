@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
 import { HNListPage } from "./HNListPage";
 
-export class HNNewestPage extends HNListPage {
+export class HNAskPage extends HNListPage {
   constructor(page: Page) {
-    super(page, "https://news.ycombinator.com/newest");
+    super(page, "https://news.ycombinator.com/ask");
   }
 }

@@ -177,3 +177,38 @@ The schema's `author` column would otherwise be permanently NULL. UI scrape read
 ### Verification
 
 `npx tsc --noEmit` clean. `npm test` green twice (7 tests: 2 chromium + 5 db) against live HN, no rate-limiting encountered, ~8s per run. `artifacts/hn-mirror.db` verified inspectable with the `sqlite3` CLI: 100 rows, 100 ui_ranks, 100 api_ranks. `npm run demo:fail` shows the cleaned failure output — client report, `Expected: 0 / Received: 2`, real code frame, zero mangled timestamps — and still exits 1 by design.
+
+---
+
+## 2026-07-21 — Session 4: Coverage Expansion Across HN
+
+### Overview
+
+The maintainability claim gets cashed in this session. The POM is now a `HNListPage` base class with the URL as a constructor argument; /newest, /front, /ask, and /show are each a subclass whose entire body is one `super(page, url)` call. A new structural spec covers all four list pages, the combined `tests/index.ts` is split into `tests/ui.spec.ts` and `tests/api.spec.ts`, and the API layer gained a second independent oracle: Algolia's `search_by_date` reconciled against the Firebase newstories feed.
+
+### Key Decisions
+
+**Base class extraction with one-line subclasses**
+`pages/HNListPage.ts` holds every behavior the old `HNNewestPage` had; `StoryRow` moved verbatim into `pages/StoryRow.ts` (class body untouched — that reuse is the demonstration). Adding a hypothetical fourth list page is exactly one file: `export class HNJobsPage extends HNListPage { constructor(page: Page) { super(page, "https://news.ycombinator.com/jobs"); } }`. Nothing else changes — the scrape helper, the structural analysis, and the spec pattern all accept any `HNListPage`.
+
+**No sort assertions on /front, /ask, /show — deliberately**
+Those pages are score-ranked, not time-ranked; asserting newest→oldest there would fail on correct behavior and teach a client to distrust the suite. They get structure and data-quality checks instead: rank labels match position, story ids unique within the page, every age cell parses. Knowing what not to assert is the point being made.
+
+**/ask served 22 stories, not 30 — count is content, not structure**
+First live run failed because /ask page one had only 22 stories: the Ask HN list holds however many recent ask posts exist, and 30-per-page is a cap, not a guarantee. Hard-coding 30 would fail the suite on quiet days for a reason no client would accept as a defect. The page-one checks now validate the structure of whatever the page serves (capped at 30) and fail only if zero rows render; /newest keeps its strict 30-per-page expectation across pagination because the newstories firehose guarantees the pages stay full.
+
+**Rate-limit settling moved into `goto()` — a latent ordering flaw exposed**
+The second live run hung 45s on /newest: HN served its "Sorry" rate-limit page during navigation, and `goto()` waited for `tr.athing` before any rate-limit handling could run — the bounded backoff existed but was sequenced after the wait that never resolved. `settleRateLimit` now lives in its own helper (`helpers/settleRateLimit.ts`, breaking a would-be import cycle between pages/ and helpers/) and `HNListPage.goto()` navigates, settles, then waits for rows. Every page object inherits rate-limit resilience instead of each helper re-implementing it. Third run: fully green in 15.4s.
+
+**Algolia as a second independent oracle**
+`tests/api.spec.ts` fetches `search_by_date?tags=story&hitsPerPage=100` and reconciles it against the Firebase newstories records through a pure `reconcileRecencyOrder` in `sortAnalysis.ts`: for every story pair both sources list, their relative recency order must agree (timestamp ties exempt, same rule as everywhere else in the suite). Two services with separate infrastructure agreeing on ordering is a much stronger claim than either alone. The overlap floor is 50 of 100 — Algolia indexes new stories with a lag, so set equality would be asserting on the wrong thing; the floor only exists so an empty intersection can't produce a vacuous pass. Firebase records are fetched once in a `beforeAll` and shared by both API tests, so the cross-check adds one Algolia request rather than another hundred Firebase item fetches.
+
+**Timestamp parsing extracted to `parseAgeTitle`**
+The age-title parsing that lived inline in the scraper is now a pure function in `helpers/structureAnalysis.ts`, shared by the scraper and the structural analysis. This also pre-pays Session 5's requirement that timestamp parsing be a unit-testable pure function.
+
+**Request volume held down**
+The structural checks load exactly one page each of /ask, /show, /front, and two of /newest — five page loads for four new tests. The full suite remains a single serial worker.
+
+### Verification
+
+`npx tsc --noEmit` clean. `npm test` fully green: 12 tests (7 chromium + 5 db) in 15.4s against live HN, after a deliberate two-minute cool-off from the rate-limit encounter documented above. The rate limiting during the second verification run is reported here explicitly: it surfaced a real ordering bug, was fixed, and the final run passed without interference. Zero comments in any .ts file.

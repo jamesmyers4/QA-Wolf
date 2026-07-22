@@ -19,7 +19,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testMatch: ["**/index.ts"],
+      testMatch: ["**/ui.spec.ts", "**/api.spec.ts", "**/list-pages.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
     {
