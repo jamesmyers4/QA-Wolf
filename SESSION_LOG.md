@@ -99,3 +99,38 @@ After clickMore the helper runs `settleRateLimit` first, then the id-change asse
 ### Verification
 
 `npm test` green: both tests passed in 6.5s total on Playwright 1.61.1, no rate-limiting encountered. `npm run typecheck` clean under strict mode. Zero comments in any .ts file, zero `networkidle`/`waitForTimeout` anywhere. `.DS_Store` was already untracked from a prior commit; `artifacts/` added to .gitignore. README typo fixes above the divider only ("conveneint", "minimzing").
+
+---
+
+## 2026-07-21 — Session 2: Diagnostics & Client-Facing Reporting
+
+### Overview
+
+This session makes the suite speak client language. Sort validation now runs through a pure analysis model (`helpers/sortAnalysis.ts`) that collects every violation with per-pair drift, both specs attach their raw evidence to the HTML report, a custom reporter writes a plain-English summary to `artifacts/results-summary.md`, and a `demo:fail` script shows the failure diagnostics on demand without waiting for HN to actually break.
+
+### Key Decisions
+
+**`analyzeSortOrder` is pure and collects every violation, not just the first**
+Zero Playwright imports — the Session 5 unit layer will test it directly. The old loop of per-pair `toBeLessThanOrEqual` assertions stopped at the first bad pair and reported two bare numbers. The analysis walks all adjacent pairs, records each inversion with both full records and the drift in seconds, and summarizes the timestamp span. One out-of-order article and a wholesale shuffle are different conversations to have with a client; the report now distinguishes them. Newest/oldest are computed by scanning all records rather than trusting positions 0 and n-1, so the span stays correct even when the input is the thing that's broken. Ties are legal: two stories posted the same second are not a violation, so the comparison is strictly `>`.
+
+**Violation detail IS the assertion message**
+`expect(analysis.violations, formatViolationReport(analysis)).toEqual([])` — on failure the first thing in the output is `Sort violation at rank 4: "Why our startup moved back to bare metal" (2026-07-21T14:11:01) appears 94s newer than rank 3...`, followed by the full violation objects in the diff. The formatting functions live in `sortAnalysis.ts` so the specs, the reporter, and the demo all speak with one voice.
+
+**Scraper upgraded to `getArticleRecords`, old helper deleted rather than wrapped**
+Records now carry rank, story id (the `tr.athing` id attribute, via a new `StoryRow.getId()`), title, ISO timestamp, and unix time. The unix time comes from the second half of the `.age` title attribute (`"2026-07-21T14:03:11 1784642591"`) instead of re-parsing the ISO string — HN already did the conversion. A `getArticleTimestamps` wrapper wasn't kept: the only call site was the UI spec, which was being rewritten anyway, so the wrapper would have been dead code with a maintenance cost and no reader benefit. Story ids in every record also sets up Session 3's pagination-drift detection.
+
+**Evidence attached via `testInfo.attach`, screenshot only on sort failure**
+Both specs attach `article-records.json` and `sort-analysis.json`; the UI spec adds a full-page screenshot only when the analysis finds violations. Attaching before asserting matters — evidence must land even (especially) when the assertion throws. The attachments serve double duty: they appear in the HTML report for humans, and the custom reporter reads `sort-analysis.json` back from `result.attachments` to build its summary, which keeps the reporter decoupled from the specs — any future spec that attaches a `sort-analysis.json` gets client reporting for free.
+
+**Custom reporter anchored to the config file directory, not `rootDir`**
+First run wrote `results-summary.md` to `tests/artifacts/` — Playwright's `FullConfig.rootDir` resolves to `testDir`, not the config location. Switched to `dirname(config.configFile)` with a `process.cwd()` fallback. The reporter prints a bordered console block (pass: one line per check with count, UTC span, violation count; fail: each violation in client language, or a pointer to the HTML report when a test died before analysis) and writes the same content as markdown. It's registered alongside `list` and `html` — it complements the technical reporters, it doesn't replace them.
+
+**`demo:fail` isolated via a separate Playwright project, honest exit code kept**
+`tests/demo-fail.spec.ts` feeds a 10-record fixture with two engineered inversions (94s and 187s drift) through the same `analyzeSortOrder` → attach → assert path the real specs use. Isolation is by project (`chromium` has `testMatch: index.ts`, `demo-fail` has its own), because a config-level `testMatch` exclusion would make `playwright test tests/demo-fail.spec.ts` report "no tests found" — projects keep both runnable and mutually invisible. `npm test` now pins `--project=chromium`. The demo deliberately exits 1: masking the exit code with `|| exit 0` would misrepresent a failing run as passing, and the red exit is part of what the demo demonstrates.
+
+**Firebase eventual-consistency race found and fixed**
+First live run failed: story id 49000656 appeared in `/newstories.json` but `/item/49000656.json` still returned null — HN publishes the id list before the item record is readable. The old spec would have pushed `undefined` into the timestamp array and failed with a meaningless comparison error; the rewritten spec's strict item validation surfaced it immediately with the item id and rank. Fixed by wrapping each item fetch in `withBackoff` with a typed `PendingItemError` as the retryable condition (4 attempts, 1s base, 8s cap — the record populates within seconds). This is the diagnostics layer paying for itself on day one: better error messages turned a mystery flake into a one-line root cause.
+
+### Verification
+
+`npm run typecheck` clean. `npm test` green twice (before and after the reporter path fix), no rate-limiting encountered; console shows the client summary block and `artifacts/results-summary.md` is written with both checks at 100/100, 0 violations. `npm run demo:fail` prints the two engineered violations in client language and exits 1 as designed. Zero comments in any .ts file; `tsconfig.json` include extended to cover `reporters/`.

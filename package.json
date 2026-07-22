@@ -5,9 +5,10 @@
   "author": "Jimmy Myers",
   "license": "ISC",
   "scripts": {
-    "test": "playwright test",
-    "test:ui": "playwright test -g \"sorted from newest to oldest\"",
-    "test:api": "playwright test -g \"HN API returns newest stories\"",
+    "test": "playwright test --project=chromium",
+    "test:ui": "playwright test --project=chromium -g \"sorted from newest to oldest\"",
+    "test:api": "playwright test --project=chromium -g \"HN API returns newest stories\"",
+    "demo:fail": "playwright test --project=demo-fail",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

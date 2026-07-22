@@ -2,12 +2,15 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["**/index.ts"],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: [["list"], ["html", { open: "never", outputFolder: "artifacts/html-report" }]],
+  reporter: [
+    ["list"],
+    ["./reporters/clientSummaryReporter.ts"],
+    ["html", { open: "never", outputFolder: "artifacts/html-report" }],
+  ],
   timeout: 180000,
   use: {
     trace: "on-first-retry",
@@ -16,6 +19,12 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testMatch: ["**/index.ts"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "demo-fail",
+      testMatch: ["**/demo-fail.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
   ],

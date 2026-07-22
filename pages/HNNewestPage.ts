@@ -70,6 +70,10 @@ export class StoryRow {
     this.hideLink = subtextRow.locator('a[href^="hide"]');
   }
 
+  async getId(): Promise<string | null> {
+    return this.titleRow.getAttribute("id");
+  }
+
   async getAge(): Promise<string> {
     return this.age.innerText();
   }

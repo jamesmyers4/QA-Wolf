@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { HNNewestPage } from "../pages/HNNewestPage";
 import { withBackoff } from "./withBackoff";
+import type { ArticleRecord } from "./sortAnalysis";
 
 class RateLimitError extends Error {
   constructor() {
@@ -24,37 +25,46 @@ async function settleRateLimit(page: Page): Promise<void> {
   );
 }
 
-export async function getArticleTimestamps(
+export async function getArticleRecords(
   page: Page,
   count = 100,
-): Promise<number[]> {
+): Promise<ArticleRecord[]> {
   const hn = new HNNewestPage(page);
-  const timestamps: number[] = [];
+  const records: ArticleRecord[] = [];
   const firstRow = page.locator("tr.athing").first();
   await settleRateLimit(page);
   await expect(firstRow).toBeVisible();
-  while (timestamps.length < count) {
+  while (records.length < count) {
     const stories = hn.getStories();
     for (const story of stories) {
-      if (timestamps.length >= count) break;
-      const ageText = await story.age.getAttribute("title");
-      if (!ageText)
+      if (records.length >= count) break;
+      const rank = records.length + 1;
+      const idAttr = await story.getId();
+      if (!idAttr) throw new Error(`Missing story id at rank ${rank}`);
+      const title = await story.getTitle();
+      const ageTitle = await story.age.getAttribute("title");
+      if (!ageTitle)
+        throw new Error(`Missing timestamp for "${title}" at rank ${rank}`);
+      const [isoTimestamp, unixPart] = ageTitle.split(" ");
+      const unixTime = unixPart
+        ? Number(unixPart)
+        : Math.floor(new Date(`${isoTimestamp}Z`).getTime() / 1000);
+      if (!Number.isFinite(unixTime))
         throw new Error(
-          `Missing timestamp at position ${timestamps.length + 1}`,
+          `Unparseable timestamp "${ageTitle}" for "${title}" at rank ${rank}`,
         );
-      const isoTimestamp = ageText.split(" ")[0];
-      timestamps.push(new Date(isoTimestamp).getTime());
+      records.push({ rank, id: Number(idAttr), title, isoTimestamp, unixTime });
     }
-    if (timestamps.length < count) {
+    if (records.length < count) {
       const previousId = await firstRow.getAttribute("id");
       if (!previousId)
         throw new Error(
-          `Missing story id on first row at position ${timestamps.length + 1}`,
+          `Missing story id on first row after rank ${records.length}`,
         );
       await hn.clickMore();
       await settleRateLimit(page);
       await expect(firstRow).not.toHaveAttribute("id", previousId);
     }
   }
-  return timestamps;
+  return records;
 }
