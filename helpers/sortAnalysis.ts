@@ -2,6 +2,7 @@ export interface ArticleRecord {
   rank: number;
   id: number;
   title: string;
+  author?: string;
   isoTimestamp: string;
   unixTime: number;
 }
@@ -63,7 +64,7 @@ export function analyzeSortOrder(articles: ArticleRecord[]): SortAnalysis {
 }
 
 export function formatViolation(violation: SortViolation): string {
-  return `Sort violation at rank ${violation.rank}: "${violation.current.title}" (${violation.current.isoTimestamp}) appears ${violation.driftSeconds}s newer than rank ${violation.previous.rank}: "${violation.previous.title}" (${violation.previous.isoTimestamp})`;
+  return `Sort violation at rank ${violation.rank}: "${violation.current.title}" (posted ${violation.current.isoTimestamp} UTC) appears ${violation.driftSeconds}s newer than rank ${violation.previous.rank}: "${violation.previous.title}" (posted ${violation.previous.isoTimestamp} UTC)`;
 }
 
 export function formatViolationReport(analysis: SortAnalysis): string {

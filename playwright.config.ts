@@ -23,6 +23,11 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      name: "db",
+      testMatch: ["**/db.spec.ts"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "demo-fail",
       testMatch: ["**/demo-fail.spec.ts"],
       use: { ...devices["Desktop Chrome"] },

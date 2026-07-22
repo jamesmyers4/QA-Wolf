@@ -43,5 +43,5 @@ test("demo: shuffled fixture produces client-readable sort diagnostics", async (
     body: JSON.stringify(analysis, null, 2),
     contentType: "application/json",
   });
-  expect(analysis.violations, formatViolationReport(analysis)).toEqual([]);
+  expect(analysis.violations.length, formatViolationReport(analysis)).toBe(0);
 });

@@ -134,3 +134,46 @@ First live run failed: story id 49000656 appeared in `/newstories.json` but `/it
 ### Verification
 
 `npm run typecheck` clean. `npm test` green twice (before and after the reporter path fix), no rate-limiting encountered; console shows the client summary block and `artifacts/results-summary.md` is written with both checks at 100/100, 0 violations. `npm run demo:fail` prints the two engineered violations in client language and exits 1 as designed. Zero comments in any .ts file; `tsconfig.json` include extended to cover `reporters/`.
+
+---
+
+## 2026-07-21 — Session 3: Data Layer — SQLite Mirror
+
+### Overview
+
+The June submission called a database layer "outside the scope of this exercise as it requires internal database access." This session removes that excuse: every run now ingests the live /newest data (UI scrape + API fetch) into a local SQLite mirror at `artifacts/hn-mirror.db` and validates the sort, uniqueness, data quality, and cross-layer agreement in raw SQL. Also fixed two items from the demo:fail review before starting, one of which turned into the most interesting root cause of the buildout so far.
+
+### Pre-session fixes from demo:fail review
+
+**Sort assertions changed from `.toEqual([])` to `.toBe(0)` on `violations.length`**
+The `toEqual([])` form printed the client-language report and then buried it under a 38-line object diff of the violation array. `expect(analysis.violations.length, formatViolationReport(analysis)).toBe(0)` fails as `Expected: 0, Received: 2` with the client report as the only narrative — the full objects still land in `sort-analysis.json` for anyone who wants them. Changed in both real specs and the demo spec; the demo is the one place failures actually print, so leaving it noisy would have defeated its purpose.
+
+**The "14:9:27" mystery — Playwright's stack parser, not a formatter**
+The review flagged an unpadded timestamp (`14:9:27`) in the demo output and blamed a formatter. No formatter in this repo builds times from parts — every timestamp flows through already-padded ISO strings. The real cause: our violation lines ended with `(2026-07-21T14:09:27)`, which matches the `(file:line:column)` shape of a stack frame, so Playwright's error renderer parsed `:09:27` as line 9, column 27 and re-rendered the "frame" with the zeros stripped. Fixed by changing the format to `(posted 2026-07-21T14:09:27 UTC)` — the trailing ` UTC` breaks the frame pattern, and naming the timezone is a strict improvement for a client reading the report anyway. Side benefit: with the fake frames gone, Playwright now shows the real code frame for the failing assertion. Lesson recorded because it's the diagnostics layer being tested by its own output: the symptom was real, the reported diagnosis was wrong, and the fix required knowing what the tooling does to your error messages.
+
+### Key Decisions
+
+**`node:sqlite` instead of `better-sqlite3`**
+The brief named better-sqlite3, but v13.0.1 ships no prebuilt binary for Node 24 on win32 and the fallback source build requires a VC++ toolset this machine (and plausibly a reviewer's machine) doesn't have. Node 24's built-in `node:sqlite` (`DatabaseSync`) has a nearly identical synchronous API, needs zero dependencies and zero native compilation, and writes a standard SQLite file that the `sqlite3` CLI opens directly. For a take-home whose Session 6 acceptance test is a fresh clone on an unknown machine, removing a native build step is the more defensible engineering call. Trade-off: Node still tags the module with an ExperimentalWarning on stderr (API has been stable since 22.5 and the warning is cosmetic), and the dependency floor becomes Node 22.5+ — the README's run instructions (Session 6) will state that.
+
+**Ingestion is upsert-on-id; ranks merge, first write wins on content**
+`ingestUiStories` populates `ui_rank`, `ingestApiStories` populates `api_rank`, both `ON CONFLICT(id) DO UPDATE SET <rank column only>`. A story seen by both layers gets both ranks on one row; title/author/timestamp from whichever layer wrote first are kept, since a disagreement there would surface in the cross-layer checks, not silently overwrite. Ingestion happens once in the db spec's `beforeAll` — the cost is one extra UI scrape and API fetch per full run, which stays within read-only etiquette but is worth stating: `npm test` now touches HN roughly twice as much as before.
+
+**Sort validation as a self-join, mirroring `analyzeSortOrder`**
+The SQL sort check joins each story to the next rank (`ON b.api_rank = a.api_rank + 1`) and selects pairs where the lower-ranked story is strictly newer — the same all-violations, ties-are-legal semantics as the pure TypeScript analysis, expressed in a second technology. Same failure voice too: `db/queries.ts` formatters produce the identical client-report sentences, so a SQL-detected violation reads the same as a UI-detected one.
+
+**Cross-layer reconciliation asserts on the intersection, not set equality**
+/newest moves between the UI scrape and the API fetch, so the two layers legitimately see slightly different story sets. The spec asserts (a) at least 80 of the UI's 100 stories also appear in the API's 100 — low enough to tolerate a burst of new submissions mid-run, high enough that a real data problem (wrong endpoint, wrong page) fails loudly; and (b) zero relative-order inversions between layers among shared stories *whose timestamps differ* — tied timestamps are exempt because both orderings are legal for a tie, exactly matching the tie rule in `analyzeSortOrder`. In tonight's runs the overlap was 100/100 with ranks agreeing 1:1.
+
+**Pagination drift detected by story id, classified as environment — not defect**
+HN inserts new stories at the top of /newest continuously, which pushes stories down across page boundaries mid-pagination; a story scraped at rank 28 can reappear at rank 31 after clicking More. Without ids that reappearance is indistinguishable from a sort violation (its timestamp is newer than its neighbors'). The scraper now tracks seen ids: a repeat across pages is recorded as a `PaginationDriftEvent` and skipped (scraping continues until 100 *unique* stories), while a repeat within a single page throws immediately — the same symptom on one page can only be a product defect, and the error message says which classification applies and why. Drift events are attached as `pagination-drift.json` and the client summary appends a note ("pagination drift from new submissions arriving mid-run, excluded from analysis, not a sort defect") so a client never mistakes environmental noise for a broken sort.
+
+**API ISO timestamps normalized to match the UI's format**
+`toISOString()` produces `2026-07-22T01:49:03.000Z` while HN's title attribute produces `2026-07-22T01:49:03`. Trimmed the API version to 19 characters so `iso_time` in the mirror is one uniform format and the "posted ... UTC" phrasing is accurate for both layers.
+
+**`author` added to `ArticleRecord` as optional**
+The schema's `author` column would otherwise be permanently NULL. UI scrape reads `.hnuser` (guarded by `count()` so a story without an author cell degrades to NULL instead of stalling on a 45s locator timeout), API uses the item's `by` field. The sort analysis ignores it; the mirror is richer for anyone poking at the database.
+
+### Verification
+
+`npx tsc --noEmit` clean. `npm test` green twice (7 tests: 2 chromium + 5 db) against live HN, no rate-limiting encountered, ~8s per run. `artifacts/hn-mirror.db` verified inspectable with the `sqlite3` CLI: 100 rows, 100 ui_ranks, 100 api_ranks. `npm run demo:fail` shows the cleaned failure output — client report, `Expected: 0 / Received: 2`, real code frame, zero mangled timestamps — and still exits 1 by design.
