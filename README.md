@@ -1,5 +1,5 @@
-# 🐺 QA Wolf Take Home Assignment (Jimmy Myers)
 [![Tests](https://github.com/jamesmyers4/QA-Wolf/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/jamesmyers4/QA-Wolf/actions/workflows/tests.yml)
+# 🐺 QA Wolf Take Home Assignment (Jimmy Myers)
 
 The assignment: validate that exactly the first 100 articles on [Hacker News /newest](https://news.ycombinator.com/newest) are sorted newest to oldest. This repo treats that one check the way I'd treat a client's production suite — full-pyramid coverage (unit → API → UI → data layer), deterministic waits, bounded backoff against a live site, and failure output a non-technical client could act on. Every decision has a written rationale in [SESSION_LOG.md](SESSION_LOG.md).
 
