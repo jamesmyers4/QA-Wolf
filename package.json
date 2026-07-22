@@ -1,17 +1,21 @@
 {
-  "name": "qa_wolf_take_home",
+  "name": "qa-wolf-take-home",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {},
-  "keywords": [],
-  "author": "",
+  "description": "Playwright + TypeScript suite validating that the first 100 Hacker News /newest articles are sorted newest to oldest, at the UI and API layers",
+  "author": "Jimmy Myers",
   "license": "ISC",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test -g \"sorted from newest to oldest\"",
+    "test:api": "playwright test -g \"HN API returns newest stories\"",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
-    "playwright": "^1.39.0"
+    "playwright": "^1.61.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.39.0",
-    "@types/node": "^20.8.9"
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
   }
 }

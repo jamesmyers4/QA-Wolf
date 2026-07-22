@@ -2,9 +2,9 @@
 
 ## Decisions
 
-Page Object Model: Most conveneint way to structure a complex test suite - Minimizes future updates when something changes.
+Page Object Model: Most convenient way to structure a complex test suite - Minimizes future updates when something changes.
 
-Helpers: Same reasons as going with POM - convenient way for a QA team to keep up with changes over time - minimzing the amount of work needed.
+Helpers: Same reasons as going with POM - convenient way for a QA team to keep up with changes over time - minimizing the amount of work needed.
 
 ## Test Coverage
 
