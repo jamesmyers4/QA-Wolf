@@ -30,7 +30,7 @@ export async function getArticleRecords(
   await settleRateLimit(page);
   await expect(firstRow).toBeVisible();
   while (records.length < count) {
-    const stories = hn.getStories();
+    const stories = await hn.getStories();
     for (const story of stories) {
       if (records.length >= count) break;
       const rank = records.length + 1;

@@ -11,8 +11,7 @@ export async function getListRows(
 ): Promise<ListRowFacts[]> {
   await settleRateLimit(page);
   await expect(page.locator("tr.athing").first()).toBeVisible();
-  const available = await list.getStoryCount();
-  const stories = list.getStories(Math.min(count, available));
+  const stories = await list.getStories(count);
   const rows: ListRowFacts[] = [];
   for (const [index, story] of stories.entries()) {
     const idAttr = await story.getId();

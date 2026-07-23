@@ -18,10 +18,12 @@ export class HNListPage {
     await this.page.waitForSelector("tr.athing");
   }
 
-  getStories(count = 30): StoryRow[] {
+  async getStories(count = 30): Promise<StoryRow[]> {
+    const available = await this.getStoryCount();
+    const safeCount = Math.min(count, available);
     const titleRows = this.page.locator("tr.athing");
     return Array.from(
-      { length: count },
+      { length: safeCount },
       (_, i) => new StoryRow(titleRows.nth(i)),
     );
   }
