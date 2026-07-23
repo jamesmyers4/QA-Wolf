@@ -13,6 +13,8 @@ export async function settleRateLimit(page: Page): Promise<void> {
   await withBackoff(
     async () => {
       if (blocked) await page.reload();
+      const hasStories = (await page.locator("tr.athing").count()) > 0;
+      if (hasStories) return;
       const bodyText = await page.locator("body").innerText();
       if (bodyText.includes("Sorry")) {
         blocked = true;
