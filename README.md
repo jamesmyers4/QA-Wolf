@@ -7,7 +7,7 @@ The assignment: validate that exactly the first 100 articles on [Hacker News /ne
 
 ### Technical ability
 
-- **Full testing pyramid.** 39 Vitest unit tests over the suite's own pure logic, API validation against two independent oracles (HN's Firebase API reconciled with Algolia's `search_by_date`), UI validation through a Page Object Model, and a SQLite mirror that re-validates the sort in raw SQL. The June submission called a DB layer "outside the scope of this exercise as it requires internal database access" — I disagreed, so this version builds the database: every run ingests both layers into `artifacts/hn-mirror.db` and asserts sort integrity, uniqueness, data quality, and cross-layer agreement at the SQL level.
+- **Full testing pyramid.** 43 Vitest unit tests over the suite's own pure logic, API validation against two independent oracles (HN's Firebase API reconciled with Algolia's `search_by_date`), UI validation through a Page Object Model, and a SQLite mirror that re-validates the sort in raw SQL. The June submission deemed a DB layer out of scope ("Requires internal database access — outside scope of this exercise") — I disagreed, so this version builds the database: every run ingests both layers into `artifacts/hn-mirror.db` and asserts sort integrity, uniqueness, data quality, and cross-layer agreement at the SQL level.
 - **Zero non-deterministic waits.** No `networkidle`, no sleeps. Pagination waits on the first story row's id changing — an auto-retrying assertion on the thing we actually need.
 - **Deliberate resilience.** Exponential backoff with jitter and a hard attempt cap (`helpers/withBackoff.ts`) handles HN's "Sorry" rate-limit page and transient network errors; a persistently blocked run fails loudly with a clear message instead of hanging.
 - **Pagination drift classification.** HN inserts new stories mid-run, shifting items across page boundaries. Story-id tracking distinguishes that environmental drift from an actual sort defect, classifies it in the diagnostics, and excludes it from analysis — flake source and product defect are never conflated.
@@ -24,7 +24,8 @@ The assignment: validate that exactly the first 100 articles on [Hacker News /ne
 - **[SESSION_LOG.md](SESSION_LOG.md)** is the paper trail of intentionality: every session's decisions, trade-offs, and the two rate-limit encounters reported honestly instead of retried into silence.
 - **Accessibility with a baseline, not noise.** HN is a table-layout site from 2007; a raw axe scan fails everything. The suite freezes 22 known legacy findings in a committed baseline (selector-normalized to survive a live feed) and fails only on new violations — how a11y actually gets adopted on legacy client sites.
 - **Knowing what not to assert.** /front, /ask, and /show are score-ranked, so they get structural and data-quality checks, never newest→oldest assertions that would fail on correct behavior.
-- **Read-only etiquette.** Single worker, one page load per list page, Firebase item fetches bounded to 10 concurrent, and CI never hits HN automatically.
+- **Read-only etiquette.** Single worker, strictly read-only traffic (no votes, logins, or submissions), Firebase item fetches bounded to 10 concurrent, and CI never hits HN automatically.
+- **[AI proposed, human reviewed](docs/treeline-appendix/COMPARISON.md).** I independently built [treeLine](https://github.com/jamesmyers4/treeLine), an open-source version of the crawl → AI-generate → human-review pipeline QA Wolf's platform uses, and published the human-review step against this very assignment: treeLine's generated HN page object, compared line by line with the hand-written one.
 
 ## Architecture
 
@@ -38,7 +39,7 @@ The assignment: validate that exactly the first 100 articles on [Hacker News /ne
 └─ artifacts/    gitignored output: HTML report, JSON evidence, hn-mirror.db, a11y report
 ```
 
-Complexity lives in `pages/`, `helpers/`, and `db/`; every spec file reads in one screen. Adding a fifth HN list page is one subclass with a URL string. Chromium-only on purpose: sort validation isn't rendering-dependent, and one browser keeps run time and HN traffic down.
+Complexity lives in `pages/`, `helpers/`, and `db/`; every spec file reads in one screen. Adding a fifth HN list page is one subclass with a URL string. Chromium-only on purpose: sort validation isn't rendering-dependent, and one browser keeps run time and HN traffic down. Two more deliberate exclusions: visual regression (HN's layout is static — screenshot diffs would add flake without signal) and a standalone results web UI (the client-summary reporter covers the "simple user interface" suggestion with far less surface area).
 
 ## Run it
 
@@ -49,6 +50,8 @@ npm i
 npx playwright install chromium
 npm run test:all
 ```
+
+HN rate-limits per IP. If the /newest scrape reports HN's rate-limit ("Sorry") page, the suite fails loudly by design after bounded retries — wait a few minutes and rerun.
 
 | Script                  | What it does                                                        |
 | ----------------------- | ------------------------------------------------------------------- |

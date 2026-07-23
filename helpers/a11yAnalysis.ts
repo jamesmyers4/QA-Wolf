@@ -93,7 +93,7 @@ export function formatA11yComparison(comparison: BaselineComparison): string {
   if (comparison.newFindings.length === 0) {
     const resolvedNote =
       comparison.resolvedCount > 0
-        ? `; ${comparison.resolvedCount} baseline ${comparison.resolvedCount === 1 ? "finding" : "findings"} no longer occur, so the baseline can be tightened`
+        ? `; ${comparison.resolvedCount} baseline ${comparison.resolvedCount === 1 ? "finding no longer occurs" : "findings no longer occur"}, so the baseline can be tightened`
         : "";
     return `Accessibility: 0 new violations vs baseline (${comparison.knownCount} known legacy ${comparison.knownCount === 1 ? "finding" : "findings"} tracked${resolvedNote})`;
   }

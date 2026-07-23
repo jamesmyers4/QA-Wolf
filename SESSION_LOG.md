@@ -312,3 +312,44 @@ The June submission was a competent two-test script: UI scrape plus Firebase che
 ### Verification
 
 `npx tsc --noEmit` clean. `npm run test:unit` green (39 tests). Workflow YAML parses (js-yaml), and its unit job runs exactly the two commands verified locally. README below-divider content confirmed unchanged via git diff — every changed line sits above the divider. Fresh-clone `npm run test:all` fully green on the second run as detailed above, rate-limit interference on the first run reported explicitly.
+
+---
+
+## 2026-07-22 — treeLine Session: Evidence & Cross-Validation
+
+### Overview
+
+Before this session's main work, a verification pass caught three items the Session 6 record implied but the tree didn't contain: package.json had no `engines` field despite the README's Node ≥ 22.5 claim (added `"engines": { "node": ">=22.5" }`), the a11y summary line had a subject–verb disagreement at resolvedCount 1 ("1 baseline finding no longer occur" — fixed to occurs/occur with the pluralized noun), and `formatA11yComparison` had zero unit coverage (added four cases: singular/plural resolved note, singular known-findings count with the resolved note absent at zero, and the singular new-violation report with its numbered detail line). Unit count moves 39 → 43. The main work: committed a curated markdown appendix (`docs/treeline-appendix/`, 52 KB total) from a one-time treeLine crawl of HN, and wrote COMPARISON.md — the human review of my own tool's AI-generated /newest page object against the hand-written one.
+
+### Key Decisions
+
+**treeLine is evidence, not infrastructure — zero runtime coupling, deliberately**
+Nothing in the suite imports, shells out to, or reads from treeLine or the appendix; the submission runs standalone with npm on a fresh clone, and wiring a second toolchain into a take-home would trade that guarantee for a demo. The appendix is committed artifacts from one polite crawl (5 pages, unauthenticated, read-only, run once by hand from the treeLine checkout) — the same HN etiquette the test suite observes, applied to crawl traffic. Raw output (`treeLine-output/`: capture SQLite db, screenshots, 410 KB selector report) stays gitignored; only curated markdown ships, with the two biggest reports cut to excerpts plus computed summary statistics so the whole appendix is a rounding error in the zip.
+
+**COMPARISON.md is the centerpiece, and it cuts both ways**
+The agreement column is real validation: treeLine independently rejected all 261 absolute XPaths and 231 of 261 CSS paths for /newest as unstable and top-ranked role selectors — the locator philosophy the suite chose by judgment, reached statistically. The override column is the senior signal: the two-row `tr.athing`/subtext bridge (cross-element comprehension no selector ranker attempts), the `.age` title-attribute timestamp over the render-time relative text (a data-quality judgment, invisible to stability scoring), `.age` vs `.age a`, and one `StoryRow` class where the generator emitted ~260 snapshot-bound fields. The stated limitation — treeLine models the captured page, not the template, so its POM is stale before review on a live feed — is left plain rather than softened, because self-critique of my own tooling is the point of publishing the review.
+
+**The generated POM doesn't compile, and that goes in the feedback, not the shredder**
+`readonly 3MinutesAgoLink1: Locator` — element names starting with digits become illegal TypeScript identifiers. That and six other findings (entity-id selectors like `#up_49000525` misranked stable, no repeating-region detection, proposed spec clicking a submit button absent from its own snapshot, machine-readable attributes unsurfaced, inconsistent atlas entity abstraction, undeduplicated 410 KB report) are filed as a numbered feedback section in COMPARISON.md, heading back to treeLine's tracker. Finding real bugs in the tool is what a review gate is for.
+
+**Independent axe cross-check strengthens the Session 5 baseline**
+treeLine's own axe pass on /newest found exactly the 7 rule ids in `a11y-baseline.json` — no rule found by one scanner and missed by the other. Node-count deltas (273 raw color-contrast nodes vs the baseline's 22 normalized findings) are the raw-scan-vs-normalized-baseline difference working as designed. Recorded in COMPARISON.md as the credibility check it is.
+
+**Session 6 patch applied**
+README gained a fifth mission-values bullet linking COMPARISON.md (one sentence: independently built the open-source version of QA Wolf's crawl → AI-generate → human-review pipeline and published the human-review step against this assignment), and LOOM-OUTLINE.md swaps the architecture flyover's backoff bullet for a ~10-second COMPARISON.md beat carrying the framing line — the appendix holds the depth, the Loom just points. While in the README with fresh eyes: unit count updated to 43, the June DB-layer quote made verbatim ("Requires internal database access — outside scope of this exercise"), the read-only etiquette bullet's "one page load per list page" corrected to "strictly read-only traffic" (pagination and db-ingestion re-scrapes made the old wording inaccurate), and a rate-limit expectations note added to the run section so a reviewer who hits HN's "Sorry" page knows the loud failure is designed and a few minutes' wait fixes it.
+
+### Verification
+
+`npx tsc --noEmit` clean. `npm run test:unit`: 43 tests across 4 files green. The live Playwright suite was NOT run this session, reported here per the house rule: this IP was rate-limited multiple times across the prior two days, and no change this session touches suite behavior beyond the a11y summary string — which the four new unit cases cover directly. `npm run test:all` should be re-verified once the rate limiter cools, before the final commit. Appendix confirmed markdown-only at 52 KB; `treeLine-output/` confirmed gitignored; LOOM-OUTLINE.md confirmed tracked; README below-divider content untouched.
+
+---
+
+## 2026-07-22 — Housekeeping: Session Briefs Retired
+
+### Overview
+
+BUILDOUT-SESSIONS.md and SESSION-TREELINE.md — the working briefs that drove Sessions 1–6, the pending-fixes pass, and the treeLine evidence session — were audited against the permanent files and deleted. Every session they describe was executed and logged above; the audit closed the remaining gaps so nothing durable died with the briefs.
+
+### What moved where
+
+CLAUDE.md gained a buildout-status section marking the plan complete, the consciously-excluded list from the buildout plan (visual regression, multi-browser, login/auth, standalone web UI — with the one-line reasoning for each), a treeLine appendix section carrying the zero-runtime-coupling and one-crawl-only rules forward as standing constraints, `docs/` in the architecture tree, and an outstanding-TODOs list holding the briefs' unfinished action items: Jimmy's voice pass on COMPARISON.md, the `npm run test:all` re-verification once the rate limiter cools, filing the treeLine feedback upstream, and the LOOM-OUTLINE.md submission checklist. The session-scoping hard rule was reworded to stop pointing at brief files that no longer exist. README.md gained one sentence in the architecture section owning the visual-regression and standalone-UI exclusions — the buildout plan had earmarked the README to own those decisions and only the chromium-only line had landed. No code was touched and no tests were run: nothing executable changed this session.

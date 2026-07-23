@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   compareToBaseline,
   extractFindings,
+  formatA11yComparison,
   normalizeTarget,
   toBaselineEntries,
+  type BaselineComparison,
   type RawAxeViolation,
 } from "../helpers/a11yAnalysis";
 
@@ -123,5 +125,47 @@ describe("compareToBaseline", () => {
     expect(comparison.newFindings).toEqual([]);
     expect(comparison.knownCount).toBe(0);
     expect(comparison.resolvedCount).toBe(2);
+  });
+});
+
+describe("formatA11yComparison", () => {
+  function comparison(overrides: Partial<BaselineComparison>): BaselineComparison {
+    return {
+      newFindings: [],
+      knownCount: 22,
+      resolvedCount: 0,
+      baselineCount: 22,
+      ...overrides,
+    };
+  }
+
+  it("uses singular grammar for one resolved baseline finding", () => {
+    const summary = formatA11yComparison(comparison({ resolvedCount: 1 }));
+    expect(summary).toContain("1 baseline finding no longer occurs");
+  });
+
+  it("uses plural grammar for multiple resolved baseline findings", () => {
+    const summary = formatA11yComparison(comparison({ resolvedCount: 3 }));
+    expect(summary).toContain("3 baseline findings no longer occur");
+  });
+
+  it("uses singular grammar for one known legacy finding and omits the resolved note at zero", () => {
+    const summary = formatA11yComparison(comparison({ knownCount: 1 }));
+    expect(summary).toContain("1 known legacy finding tracked");
+    expect(summary).not.toContain("no longer occur");
+  });
+
+  it("uses singular grammar for one new violation and lists it with impact and target", () => {
+    const finding = {
+      ruleId: "image-alt",
+      target: "img.hnlogo",
+      impact: "critical",
+      help: "Images must have alternative text",
+    };
+    const summary = formatA11yComparison(comparison({ newFindings: [finding] }));
+    expect(summary).toContain("1 new accessibility violation on /newest");
+    expect(summary).toContain(
+      '1. New "image-alt" violation (impact: critical) at img.hnlogo — Images must have alternative text',
+    );
   });
 });

@@ -4,6 +4,9 @@
   "description": "Playwright + TypeScript suite validating that the first 100 Hacker News /newest articles are sorted newest to oldest, at the UI and API layers",
   "author": "Jimmy Myers",
   "license": "ISC",
+  "engines": {
+    "node": ">=22.5"
+  },
   "scripts": {
     "test": "playwright test --project=chromium --project=db",
     "test:ui": "playwright test --project=chromium tests/ui.spec.ts",

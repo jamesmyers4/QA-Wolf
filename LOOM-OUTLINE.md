@@ -17,7 +17,7 @@ Target: ~2:00. Pre-warm before recording: run `npm run test:all` once so browser
 
 - The pyramid on screen (README diagram): unit → API (two independent oracles: Firebase + Algolia) → UI → SQLite mirror.
 - Line to land: **"The original README said a DB layer needs internal database access — I disagreed, so I built the database."** Every run ingests both layers into SQLite and re-validates the sort in raw SQL.
-- The exponential backoff with jitter mirrors the retry logic from my production agentic framework — resilience patterns carried over from real client-facing work, not invented for a take-home.
+- ~10 seconds, no more: flash `docs/treeline-appendix/COMPARISON.md` on screen — my open-source treeLine engine ran QA Wolf's own crawl → AI-generate → human-review pipeline against this assignment. Line to land: **"AI proposed, human reviewed and overrode where the human knew better — which is QA Wolf's own operating model."** The appendix carries the depth; don't linger.
 
 ## 1:45–2:00 — Close
 
