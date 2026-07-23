@@ -1,4 +1,4 @@
-import { type Page, type Locator } from "@playwright/test";
+import { type Page, type Locator, expect } from "@playwright/test";
 import { StoryRow } from "./StoryRow";
 import { settleRateLimit } from "../helpers/settleRateLimit";
 
@@ -15,7 +15,7 @@ export class HNListPage {
   async goto(): Promise<void> {
     await this.page.goto(this.url);
     await settleRateLimit(this.page);
-    await this.page.waitForSelector("tr.athing");
+    await expect(this.page.locator("tr.athing").first()).toBeVisible();
   }
 
   async getStories(count = 30): Promise<StoryRow[]> {
