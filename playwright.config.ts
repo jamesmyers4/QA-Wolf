@@ -13,7 +13,7 @@ export default defineConfig({
   ],
   timeout: 180000,
   use: {
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
     actionTimeout: 45000,
   },
   projects: [

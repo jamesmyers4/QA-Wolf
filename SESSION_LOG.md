@@ -397,3 +397,23 @@ The four list-page subclasses (`/newest`, `/front`, `/ask`, `/show`) share `Stor
 ### Cleanup
 
 `PAGES-HARDENING-SESSION.md` audited against this entry and deleted — every task, decision, and rationale it carried lives above now, matching the precedent set when `BUILDOUT-SESSIONS.md` and `SESSION-TREELINE.md` were retired the same way.
+
+---
+
+## 2026-07-24 — Fix: Trace Capture on Local Failures
+
+### Overview
+
+A repo-review pass (GAPS.md) flagged that `playwright.config.ts` set `trace: "on-first-retry"` while `retries: 0` locally — meaning a failing run on the machine where debugging actually happens, and where the Loom demo runs, produced zero trace, regardless of the per-spec screenshot/JSON attachments already in place. Fixed and verified.
+
+### Key Decisions
+
+**`trace: "retain-on-failure"` replaces `trace: "on-first-retry"`**
+`on-first-retry` only captures a trace on a test's first retry, so it's silent on any local run (`retries: 0`) and only ever fires on CI, where `retries: 2` is set. `retain-on-failure` records every test and keeps the trace only when that test ends up failing, independent of retries — the fix CLAUDE.md's own gap writeup named. Verified by running `RUN_DEMO_FAIL=1 npm run demo:fail`: the failing run now produces `test-results/.../trace.zip`, openable via `npx playwright show-trace`, where it previously produced none.
+
+**Documented in README, not just fixed in config**
+Added one sentence to the existing "Evidence attached everywhere" bullet in the Customer service orientation section, next to the other failure-evidence claims (screenshots, JSON attachments) — the same place a reviewer already looks for this category of claim, rather than a new bullet or a config-only comment that wouldn't survive to the README's guided tour.
+
+### Verification
+
+`npx tsc --noEmit` clean. `RUN_DEMO_FAIL=1 npm run demo:fail` confirmed a trace.zip is written on local failure under the new setting (manually confirmed before the fix, using `on-first-retry` with `retries: 0`, that no trace was produced — reproducing the gap before fixing it). Verification artifacts (`test-results/`, `artifacts/html-report/`, `artifacts/results-summary.md`) cleaned up after confirming, not committed. Zero comments added.

@@ -17,7 +17,7 @@ The assignment: validate that exactly the first 100 articles on [Hacker News /ne
 - **A client-language reporter.** `reporters/clientSummaryReporter.ts` prints a plain-English summary block and writes `artifacts/results-summary.md` — pass or fail, in sentences, not stack traces.
 - **Per-violation diagnostics.** A failure reads `Sort violation at rank 4: "Article title" (posted 2026-07-21T14:09:27 UTC) appears 94s newer than rank 3` — every violation, with drift in seconds, not just the first bad pair.
 - **`npm run demo:fail`.** A fixture with engineered inversions runs the real analysis → report path on demand, so the failure diagnostics can be seen without waiting for HN to actually break. It exits 1 by design — the red exit is part of the demonstration.
-- **Evidence attached everywhere.** Raw article records, sort analysis, drift events, and failure screenshots land in the HTML report via `testInfo.attach`.
+- **Evidence attached everywhere.** Raw article records, sort analysis, drift events, and failure screenshots land in the HTML report via `testInfo.attach`. `trace: "retain-on-failure"` in `playwright.config.ts` means a failing run keeps a full Playwright trace locally — not just on CI retries — so debugging a failure never depends on it happening twice.
 
 ### Mission & values alignment
 
