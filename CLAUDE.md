@@ -12,7 +12,7 @@ Their FAQ explicitly invites going beyond the checklist: "building a simple user
 
 ## Buildout status (as of 2026-07-22)
 
-The planned buildout is COMPLETE: Sessions 1–6, a pending-fixes pass, and the treeLine evidence session all ran and are logged with full reasoning in SESSION_LOG.md. The working session briefs (BUILDOUT-SESSIONS.md and SESSION-TREELINE.md) were executed in full and deleted; everything durable from them lives here, in README.md, or in SESSION_LOG.md. The narrative the repo tells a reviewer: "I treated a 100-article sort check the way I'd treat a client's production suite — full-pyramid coverage (UI, API, data layer, unit), client-readable reporting, deliberate resilience patterns, and documented reasoning for every decision." Remaining pre-submission work is in "Outstanding TODOs" at the bottom of this file; the mechanical submission steps (fresh-clone check, Loom recording, zip, upload) are in LOOM-OUTLINE.md's submission checklist.
+The planned buildout is COMPLETE: Sessions 1–6, a pending-fixes pass, the treeLine evidence session, and a pages-hardening pass (dead POM trim, `settleRateLimit` false-positive fix, `getStories()` row-count clamp, and four loose ends) all ran and are logged with full reasoning in SESSION_LOG.md. The working session briefs (BUILDOUT-SESSIONS.md and SESSION-TREELINE.md) were executed in full and deleted; everything durable from them lives here, in README.md, or in SESSION_LOG.md. The narrative the repo tells a reviewer: "I treated a 100-article sort check the way I'd treat a client's production suite — full-pyramid coverage (UI, API, data layer, unit), client-readable reporting, deliberate resilience patterns, and documented reasoning for every decision." Remaining pre-submission work is in "Outstanding TODOs" at the bottom of this file; the mechanical submission steps (fresh-clone check, Loom recording, zip, upload) are in LOOM-OUTLINE.md's submission checklist.
 
 ## Hard rules
 
@@ -55,6 +55,7 @@ artifacts/    gitignored test output (reports, JSON dumps, axe results)
 - Multi-browser projects: sort validation isn't rendering-dependent; chromium-only keeps run time and HN traffic down. The README owns this decision.
 - Login/auth flows: read-only etiquette against a live production site (hard rule above).
 - A standalone results web UI: the custom reporter + results-summary.md covers the FAQ's "simple user interface" suggestion with far less surface area.
+- A `/jobs` page object: job rows carry no author, score, or comment count, so they don't fit the shared `StoryRow` shape the other four list pages use. Rationale also lives in README.md next to the `pages/` architecture line.
 
 ## treeLine appendix
 
@@ -71,6 +72,5 @@ artifacts/    gitignored test output (reports, JSON dumps, axe results)
 ## Outstanding TODOs (pre-submission, from the retired session briefs)
 
 - [ ] Jimmy: edit `docs/treeline-appendix/COMPARISON.md` into his own voice before committing — it will be read closely and must sound like him (treeLine session stop block).
-- [ ] Re-run `npm run test:all` once HN's rate limiter cools and confirm fully green — it was skipped during the treeLine session after repeated rate limiting across two days (SESSION_LOG 2026-07-22 treeLine entry).
 - [ ] File the seven treeLine findings from COMPARISON.md's feedback section on treeLine's issue tracker.
 - [ ] After the final commit: fresh-clone check, record the Loom, delete node_modules, zip, submit — full checklist in LOOM-OUTLINE.md.

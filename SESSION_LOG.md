@@ -356,13 +356,27 @@ CLAUDE.md gained a buildout-status section marking the plan complete, the consci
 
 ---
 
-## 2026-07-23 — Pages Hardening: Task 5 (Loose Ends)
+## 2026-07-23 — Pages Hardening: Dead POM Trim, Rate-Limit Fix, Row-Count Clamp, and Loose Ends
 
 ### Overview
 
-PAGES-HARDENING-SESSION.md's Tasks 1–4 (dead POM trim, `settleRateLimit` false-positive fix, `getStories()` DOM-count clamp, the `goto()` web-first assertion) were already landed in prior commits — confirmed by reading the current state of `pages/StoryRow.ts`, `pages/HNListPage.ts`, and `helpers/settleRateLimit.ts` against the brief before starting, rather than trusting the file list at a glance. This session executed only Task 5, the brief's own scope boundary: four small, independent items a reviewer would notice on a close read.
+A Claude Code review of `pages/` against the live site (2026-07-22) was turned into an executable task list (`PAGES-HARDENING-SESSION.md`), independently re-verified claim-by-claim via grep against the repo before writing it, and executed across five tasks: trim dead POM surface, close two silent-failure paths, fix one style inconsistency, and four small loose ends. Selectors were never touched — already confirmed correct against production. Tasks 1–4 landed first; Task 5 (this session's explicit scope) closed it out. The brief is folded into this entry and deleted — nothing in it was left undocumented.
 
-### Key Decisions
+### Key Decisions — Tasks 1–4
+
+**Task 1: dead POM surface trimmed, including write-action methods**
+`StoryRow.hide()` and `.voteButton` were live write-action surface in a suite whose hard rule is strictly read-only traffic against production HN — never vote, hide, flag, or submit; their presence was a latent violation waiting for a future caller. Every symbol in `StoryRow.ts` and `HNListPage.ts` was grepped individually against the whole repo rather than trusting the review's list at a glance, which caught two more dead members than the review named: `getAge()` and the `.commentsLink`/`.score` locators, both orphaned once their only callers (`hide()`, `clickComments()`, `getScore()`) were removed. Confirmed dead and deleted: `StoryRow.sourceDomain`, `.voteButton`, `.score`, `.commentsLink`, `.hideLink`, `.getScore()`, `.clickTitle()`, `.clickComments()`, `.hide()`, `.getAge()`; `HNListPage.navLinks`, `.loginLink`, `.getStoryByRank()`, `.isLoggedIn()`. Confirmed live and untouched: `titleLink`, `rank`, `author`, `age`, `getId()`, `getTitle()` on `StoryRow`; `url`, `moreLink`, `goto()`, `getStoryCount()`, `clickMore()` on `HNListPage`.
+
+**Task 2: `settleRateLimit` false-positive fixed by checking row presence before body text**
+The helper read `body.innerText()` and checked `.includes("Sorry")` — but body text includes all 30 story titles, and `/newest` churns constantly, so a submission titled "Sorry, I quit my job" (a plausible HN title) would trip the same branch as HN's real rate-limit page, forcing a reload/backoff loop that could fail an entire run with `RateLimitError` against a perfectly healthy page. This runs inside `goto()` for every single test, making it the highest-leverage fix in the session. Rejected the obvious alternative (matching HN's exact block-page sentence instead of the word "Sorry") as fragile to HN changing that copy. Instead, the fix checks for the absence of `tr.athing` rows first: a title like "Sorry, I quit my job" can only ever appear inside a `tr.athing` row, so if any story rows are present the page cannot be the block page, and body text is never even inspected. The real rate-limit page is confirmed to have zero `tr.athing` rows — structurally reliable rather than copy-dependent.
+
+**Task 3: `getStories()` now clamps to the actual DOM count, in the method itself**
+`HNListPage.getStories(count)` blindly constructed `count` `StoryRow` instances without checking how many `tr.athing` rows actually existed. `helpers/getListRows.ts` already guarded this correctly with `Math.min(count, available)`, but `helpers/getArticleRecords.ts` — the core 100-article scrape — called `hn.getStories()` bare. A short page served mid-pagination (exactly the moment HN is degrading) would have stalled the first interaction with a phantom row for the full 45s `actionTimeout` and died with a generic "waiting for locator" error, violating the repo's own rule that every failure path must produce client-readable diagnostics. Clamped inside `getStories()` itself rather than at each call site, so every current and future caller is protected automatically; this let `getListRows.ts` drop its now-redundant manual clamp and `getStoryCount()` call, a net simplification at both call sites rather than just a safety fix. `getStories()` becoming `async`-aware of the DOM required one downstream `await` in `getArticleRecords.ts`.
+
+**Task 4: `goto()`'s wait converted to a web-first assertion**
+`HNListPage.goto()` used `page.waitForSelector("tr.athing")` while every other wait in the repo uses `expect(...).toBeVisible()`, and CLAUDE.md's own style rules call for the latter. Folded into the same `HNListPage.ts` replacement as Task 3 rather than a separate edit, since both land in the same file.
+
+### Key Decisions — Task 5 (Loose Ends)
 
 **demo-fail gets an opt-in skip, not a config change**
 `playwright.config.ts`'s `demo-fail` project has no test-file-level guard, so a reviewer running bare `npx playwright test` out of habit (instead of `npm test`, which scopes to `chromium` + `db`) gets a red run on a healthy site — the exact false-negative this suite exists to avoid inflicting on others. Fixed at the test level (`test.skip(!process.env.RUN_DEMO_FAIL, ...)` as the first line of the test body) rather than removing the project from the default projects list, because `npm run demo:fail` needs the project to still exist and run unconditionally when explicitly invoked. Verified both directions: bare `--project=demo-fail` now reports 1 skipped, `RUN_DEMO_FAIL=1 npm run demo:fail` still fails loudly with the engineered violations and client-readable diagnostics.
@@ -378,4 +392,8 @@ The four list-page subclasses (`/newest`, `/front`, `/ask`, `/show`) share `Stor
 
 ### Verification
 
-`npx tsc --noEmit` clean. Task 1's grep sweep (`sourceDomain|voteButton|hideLink|commentsLink|getScore|clickTitle|clickComments|\.hide(|getAge(|navLinks|loginLink|getStoryByRank|isLoggedIn` across `pages/ helpers/ tests/ unit/`) returns nothing, confirming the prior-session trim held. `npm run test:all`: 47 unit tests + 13 Playwright tests, fully green, no rate-limit interference this run. `demo-fail` project manually verified both skipped (no env var) and failing-by-design (`RUN_DEMO_FAIL=1`).
+`npx tsc --noEmit` clean. Task 1's grep sweep (`sourceDomain|voteButton|hideLink|commentsLink|getScore|clickTitle|clickComments|\.hide(|getAge(|navLinks|loginLink|getStoryByRank|isLoggedIn` across `pages/ helpers/ tests/ unit/`) returns nothing, confirming the trim held. `npm run test:all`: 47 unit tests + 13 Playwright tests, fully green, no rate-limit interference this run — satisfies the outstanding `test:all` re-verification TODO carried from the treeLine session. `demo-fail` project manually verified both skipped (no env var) and failing-by-design (`RUN_DEMO_FAIL=1`).
+
+### Cleanup
+
+`PAGES-HARDENING-SESSION.md` audited against this entry and deleted — every task, decision, and rationale it carried lives above now, matching the precedent set when `BUILDOUT-SESSIONS.md` and `SESSION-TREELINE.md` were retired the same way.
