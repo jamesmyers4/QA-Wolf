@@ -463,3 +463,26 @@ First run against the five in-scope files came back at 61.48% statements / 51.8%
 ### Verification
 
 `npm run test:unit` (`vitest run --coverage`): 50 tests, 5 files, all green; coverage thresholds pass against the real baseline. `npx tsc --noEmit` clean. `npm run lint` clean. `artifacts/coverage/` is gitignored (already covered by the existing `artifacts/` entry in `.gitignore`) — nothing new needed there. GAPS.md item 3 removed; item 6 added describing the follow-up. README.md's "Full testing pyramid" bullet and script table updated, new "Unit coverage" section added explaining the scope-exclusion rationale and the honest-baseline framing. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, `helpers/` runtime logic, or `db/`, only Vitest tooling config and docs.
+
+---
+
+## 2026-07-24 — GAPS Item 6: Missing Unit Specs for Reconciliation and Structure Analysis
+
+### Overview
+
+GAPS.md's item 6 (opened during the previous coverage-signal session) named the exact gap: `sortAnalysis.ts`'s cross-source reconciliation functions (`reconcileRecencyOrder`, `formatReconciliation`, `formatViolation`, `formatViolationReport`) and `structureAnalysis.ts`'s `analyzeListStructure`/`formatStructureIssues` are pure, Playwright-free logic with no dedicated Vitest specs, only indirect exercise through `tests/api.spec.ts` and `tests/list-pages.spec.ts`. Added `unit/structureAnalysis.spec.ts` (new file) and extended `unit/sortAnalysis.spec.ts` with the missing reconciliation/formatting cases, then raised `vitest.config.ts`'s thresholds to match the new measured baseline.
+
+### Key Decisions
+
+**Every branch in `analyzeListStructure` gets its own row-shape case, not one big fixture**
+The function accumulates independent issues per row (bad rank label, missing/duplicate id, unparseable age cell, missing author), so `unit/structureAnalysis.spec.ts` builds one minimal `ListRowFacts` per assertion via a `row()` helper with targeted overrides, plus one case stacking all four problems on a single row to confirm they accumulate rather than short-circuit. This mirrors the existing `descending()`-helper pattern already used in `sortAnalysis.spec.ts` rather than inventing a new fixture style.
+
+**Added a same-B-side tie case that the existing suite hadn't covered**
+`reconcileRecencyOrder` exempts a pair from disagreement if either source has the pair tied (`first.unixTime === second.unixTime` or `bFirst.unixTime === bSecond.unixTime`). Writing the reconciliation specs surfaced that only the A-side tie was worth a distinct case; added a second test where A's timestamps differ but B's agree, to lock in that the exemption checks both sides independently, not just the source being iterated.
+
+**Threshold raised to 99/93/100/100, not to 100/100/100/100**
+Post-fix, the five in-scope files measure 99.32% statements / 93.97% branches / 100% functions / 100% lines. Two gaps remain, both deliberately left uncovered: a `!bFirst || !bSecond` guard in `reconcileRecencyOrder` that is unreachable given `shared` is already filtered to ids present in both sources (defensive code, not a live branch — forcing a test through it would mean fabricating a broken `Map`, not testing behavior), and pre-existing `a11yAnalysis.ts` branch gaps that belong to a different file than the one this GAPS item named. CLAUDE.md's scope rule says do the named task, not "quickly also" close adjacent gaps — chasing the `a11yAnalysis.ts` branches wasn't part of item 6 and is left for its own pass if Jimmy wants it. Set thresholds just below the measured numbers (99/93 vs 99.32/93.97) so the build has a hair of headroom without silently permitting regression.
+
+### Verification
+
+`npx vitest run --coverage`: 77 tests across 6 files, all green (up from 50 tests/5 files); coverage 99.32%/93.97%/100%/100%, comfortably above the new thresholds. `npx tsc --noEmit` clean. `npm run lint` clean. GAPS.md item 6 removed (no items remain under "Minor / optional" beyond 4 and 5, which were left untouched as out of scope for this session). README.md's "Unit coverage" section rewritten to reflect full coverage of all five in-scope files instead of naming the gap. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, `helpers/` runtime logic, or `db/`, only new/extended Vitest specs and their config threshold.

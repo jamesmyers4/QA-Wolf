@@ -9,7 +9,7 @@ Target: ~2:00. Pre-warm before recording: run `npm run test:all` once so browser
 
 ## 0:25–1:15 — Demo
 
-- Run (or cut to pre-recorded) `npm run test:all`: unit layer flashes green in under a second, then the full suite — point at the client-summary block: "100/100 articles on /newest verified newest → oldest, in plain English, written to results-summary.md."
+- Run (or cut to pre-recorded) `npm run test:ui`: unit layer flashes green in under a second, then the full suite — point at the client-summary block: "100/100 articles on /newest verified newest → oldest, in plain English, written to results-summary.md."
 - Then `npm run demo:fail`: rank-level violation diagnostics with titles, timestamps, and drift in seconds. Line to land: **"This is the difference between a red X and something your client can act on."**
 - Note the exit code stays honest — the demo fails on purpose, because a failure report you can't see until production breaks is a failure report you can't trust.
 
