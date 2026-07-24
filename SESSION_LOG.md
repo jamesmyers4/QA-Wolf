@@ -353,3 +353,29 @@ BUILDOUT-SESSIONS.md and SESSION-TREELINE.md — the working briefs that drove S
 ### What moved where
 
 CLAUDE.md gained a buildout-status section marking the plan complete, the consciously-excluded list from the buildout plan (visual regression, multi-browser, login/auth, standalone web UI — with the one-line reasoning for each), a treeLine appendix section carrying the zero-runtime-coupling and one-crawl-only rules forward as standing constraints, `docs/` in the architecture tree, and an outstanding-TODOs list holding the briefs' unfinished action items: Jimmy's voice pass on COMPARISON.md, the `npm run test:all` re-verification once the rate limiter cools, filing the treeLine feedback upstream, and the LOOM-OUTLINE.md submission checklist. The session-scoping hard rule was reworded to stop pointing at brief files that no longer exist. README.md gained one sentence in the architecture section owning the visual-regression and standalone-UI exclusions — the buildout plan had earmarked the README to own those decisions and only the chromium-only line had landed. No code was touched and no tests were run: nothing executable changed this session.
+
+---
+
+## 2026-07-23 — Pages Hardening: Task 5 (Loose Ends)
+
+### Overview
+
+PAGES-HARDENING-SESSION.md's Tasks 1–4 (dead POM trim, `settleRateLimit` false-positive fix, `getStories()` DOM-count clamp, the `goto()` web-first assertion) were already landed in prior commits — confirmed by reading the current state of `pages/StoryRow.ts`, `pages/HNListPage.ts`, and `helpers/settleRateLimit.ts` against the brief before starting, rather than trusting the file list at a glance. This session executed only Task 5, the brief's own scope boundary: four small, independent items a reviewer would notice on a close read.
+
+### Key Decisions
+
+**demo-fail gets an opt-in skip, not a config change**
+`playwright.config.ts`'s `demo-fail` project has no test-file-level guard, so a reviewer running bare `npx playwright test` out of habit (instead of `npm test`, which scopes to `chromium` + `db`) gets a red run on a healthy site — the exact false-negative this suite exists to avoid inflicting on others. Fixed at the test level (`test.skip(!process.env.RUN_DEMO_FAIL, ...)` as the first line of the test body) rather than removing the project from the default projects list, because `npm run demo:fail` needs the project to still exist and run unconditionally when explicitly invoked. Verified both directions: bare `--project=demo-fail` now reports 1 skipped, `RUN_DEMO_FAIL=1 npm run demo:fail` still fails loudly with the engineered violations and client-readable diagnostics.
+
+**Redundant `playwright` dependency removed**
+`@playwright/test` (devDependencies) already vendors the `playwright` library it wraps; the standalone `"playwright": "^1.61.1"` in `dependencies` was never imported anywhere in the repo and just doubled the install surface for no behavioral difference. Removed the `dependencies` block entirely rather than leaving an empty object.
+
+**a11y-baseline.json fresh-clone risk: verified, not touched**
+`tests/a11y.spec.ts` self-seeds its baseline when the file is missing, which would let a clone without the committed baseline trivially pass against a baseline it just wrote. Confirmed via `git ls-files` that `a11y-baseline.json` is tracked, so this was a checklist verification, not a code change — carried forward into the LOOM-OUTLINE.md fresh-clone check.
+
+**`/jobs` omission rationale written down**
+The four list-page subclasses (`/newest`, `/front`, `/ask`, `/show`) share `StoryRow`'s shape; `/jobs` rows carry no author, score, or comment count and were never given a fifth subclass, but the reasoning lived only in this session's brief, not in a file a reviewer would read. Added one sentence to README.md's architecture section, next to the existing `pages/` line, rather than a new SESSION_LOG-only note — the architecture section is where a reviewer would already be looking when they notice the fourth-not-fifth subclass count.
+
+### Verification
+
+`npx tsc --noEmit` clean. Task 1's grep sweep (`sourceDomain|voteButton|hideLink|commentsLink|getScore|clickTitle|clickComments|\.hide(|getAge(|navLinks|loginLink|getStoryByRank|isLoggedIn` across `pages/ helpers/ tests/ unit/`) returns nothing, confirming the prior-session trim held. `npm run test:all`: 47 unit tests + 13 Playwright tests, fully green, no rate-limit interference this run. `demo-fail` project manually verified both skipped (no env var) and failing-by-design (`RUN_DEMO_FAIL=1`).

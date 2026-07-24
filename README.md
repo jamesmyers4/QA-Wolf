@@ -39,7 +39,7 @@ The assignment: validate that exactly the first 100 articles on [Hacker News /ne
 └─ artifacts/    gitignored output: HTML report, JSON evidence, hn-mirror.db, a11y report
 ```
 
-Complexity lives in `pages/`, `helpers/`, and `db/`; every spec file reads in one screen. Adding a fifth HN list page is one subclass with a URL string. Chromium-only on purpose: sort validation isn't rendering-dependent, and one browser keeps run time and HN traffic down. Two more deliberate exclusions: visual regression (HN's layout is static — screenshot diffs would add flake without signal) and a standalone results web UI (the client-summary reporter covers the "simple user interface" suggestion with far less surface area).
+Complexity lives in `pages/`, `helpers/`, and `db/`; every spec file reads in one screen. Adding a fifth HN list page is one subclass with a URL string. `/jobs` has no page object — job rows carry no author, score, or comment count, so it doesn't fit the shared `StoryRow` shape the other four list pages use. Chromium-only on purpose: sort validation isn't rendering-dependent, and one browser keeps run time and HN traffic down. Two more deliberate exclusions: visual regression (HN's layout is static — screenshot diffs would add flake without signal) and a standalone results web UI (the client-summary reporter covers the "simple user interface" suggestion with far less surface area).
 
 ## Run it
 

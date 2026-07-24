@@ -19,9 +19,6 @@
     "demo:fail": "playwright test --project=demo-fail",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "playwright": "^1.61.1"
-  },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",

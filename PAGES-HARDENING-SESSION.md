@@ -225,7 +225,7 @@ export async function gotoNextPage(
 
 ---
 
-## Task 5 — Noticed elsewhere (small, independent, do in one pass)
+## Task 5 — Noticed elsewhere (small, independent, do in one pass) (CURRENT SESSION!!)
 
 **5a. `npx playwright test` runs `demo-fail` and goes red on a healthy site.** `playwright.config.ts` has no default project filter, so a bare invocation runs `chromium`, `db`, and `demo-fail` together. `npm test` already scopes correctly (`--project=chromium --project=db`); the risk is a reviewer running Playwright out of habit. Add an opt-in guard to `tests/demo-fail.spec.ts`:
 

@@ -34,6 +34,10 @@ const shuffledFixture: ArticleRecord[] = [
 ];
 
 test("demo: shuffled fixture produces client-readable sort diagnostics", async ({}, testInfo) => {
+  test.skip(
+    !process.env.RUN_DEMO_FAIL,
+    "opt-in only — run via npm run demo:fail",
+  );
   const analysis = analyzeSortOrder(shuffledFixture);
   await testInfo.attach("article-records.json", {
     body: JSON.stringify(shuffledFixture, null, 2),
