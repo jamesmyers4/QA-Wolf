@@ -440,3 +440,26 @@ First lint run flagged 41 violations, every one of them a blank line between sib
 ### Verification
 
 `npm run lint`: zero problems across the full repo. Sanity-checked both rules fire correctly against a deliberately bad throwaway file (blank line mid-function + trailing comment) before confirming the real repo is clean, then deleted the throwaway file. `npx tsc --noEmit` clean. `npm run test:unit`: 50 tests across 5 files green (2 more files, 7 more tests, than the last logged count — reflects specs added between sessions, not this session's change). `npm run lint` added to `.github/workflows/tests.yml`'s `unit` job, alongside `typecheck` and `test:unit` — zero HN traffic, safe on every push. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, or any runtime behavior, only tooling config and docs.
+
+---
+
+## 2026-07-24 — GAPS Item 3: Coverage Signal on the Unit Layer
+
+### Overview
+
+GAPS.md's item 3 called out that the README cites Vitest test count as evidence of rigor with nothing behind it — no `--coverage` run, no threshold, in either `vitest.config.ts` or `package.json`. Installed `@vitest/coverage-v8` pinned to the same version as `vitest` (`4.1.10`), scoped coverage to the unit layer's five pure-logic files, wired a threshold into `npm run test:unit` so CI enforces it on every push, and documented the result in README.md.
+
+### Key Decisions
+
+**Coverage is scoped to `helpers/sortAnalysis.ts`, `structureAnalysis.ts`, `a11yAnalysis.ts`, `withBackoff.ts`, `settleRateLimit.ts` — not all of `helpers/`**
+`getAlgoliaRecords.ts`, `getApiRecords.ts`, `getArticleRecords.ts`, `getListRows.ts`, and `attachEvidence.ts` all take a live Playwright `Page` or build an `APIRequestContext` and orchestrate real HTTP/DOM interaction — the architecture conventions in CLAUDE.md are explicit that the unit layer exists for logic with no Playwright dependency, and these five are already exercised by the specs in `tests/`. Including them in the Vitest coverage scope would report a permanent, meaningless 0% on files that were never meant to run under Vitest, diluting the signal rather than sharpening it.
+
+**Threshold set at the measured baseline (60/50/70/60), not an aspirational number**
+First run against the five in-scope files came back at 61.48% statements / 51.8% branches / 71.05% functions / 61.24% lines — far lower than expected, because `sortAnalysis.ts`'s cross-source reconciliation functions (`reconcileRecencyOrder`, `formatReconciliation`, `formatViolation`, `formatViolationReport`) and `structureAnalysis.ts`'s `analyzeListStructure`/`formatStructureIssues` have no dedicated Vitest specs — they're pure and Playwright-free, exactly the kind of function the unit layer is supposed to cover, but they're currently only exercised end-to-end through `tests/api.spec.ts` and `tests/list-pages.spec.ts`. Two options: quietly set a high threshold that would fail the build today, or write the missing specs as part of this fix. Writing five-plus new spec cases for functions untouched by the actual gap ("no coverage signal" is a tooling gap, not a "raise coverage" task) would have been scope creep past what item 3 asked for and past CLAUDE.md's instruction to touch only the named task. Set the threshold to the real current baseline instead — an honest floor that fails the build on any further regression — and logged the specific undertested functions as new item 6 in GAPS.md for a properly scoped follow-up session.
+
+**`json-summary` reporter added alongside `text`/`html`**
+`html` supports human browsing of `artifacts/coverage/index.html`; `json-summary` (`coverage-summary.json`) is what made it possible to see per-file numbers precisely enough to set real thresholds rather than eyeballing the truncated terminal table (the default `text` reporter's column silently omits files sitting at 100%, which would have hidden that `withBackoff.ts` and `settleRateLimit.ts` are already fully covered).
+
+### Verification
+
+`npm run test:unit` (`vitest run --coverage`): 50 tests, 5 files, all green; coverage thresholds pass against the real baseline. `npx tsc --noEmit` clean. `npm run lint` clean. `artifacts/coverage/` is gitignored (already covered by the existing `artifacts/` entry in `.gitignore`) — nothing new needed there. GAPS.md item 3 removed; item 6 added describing the follow-up. README.md's "Full testing pyramid" bullet and script table updated, new "Unit coverage" section added explaining the scope-exclusion rationale and the honest-baseline framing. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, `helpers/` runtime logic, or `db/`, only Vitest tooling config and docs.

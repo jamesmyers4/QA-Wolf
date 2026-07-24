@@ -14,7 +14,7 @@
     "test:list": "playwright test --project=chromium tests/list-pages.spec.ts",
     "test:db": "playwright test --project=db",
     "test:a11y": "playwright test --project=chromium tests/a11y.spec.ts",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --coverage",
     "test:all": "npm run test:unit && npm test",
     "demo:fail": "playwright test --project=demo-fail",
     "typecheck": "tsc --noEmit",
@@ -27,6 +27,7 @@
     "@babel/preset-typescript": "^8.0.1",
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.7.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

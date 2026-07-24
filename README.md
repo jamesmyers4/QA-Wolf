@@ -7,7 +7,7 @@ The assignment: validate that exactly the first 100 articles on [Hacker News /ne
 
 ### Technical ability
 
-- **Full testing pyramid.** 43 Vitest unit tests over the suite's own pure logic, API validation against two independent oracles (HN's Firebase API reconciled with Algolia's `search_by_date`), UI validation through a Page Object Model, and a SQLite mirror that re-validates the sort in raw SQL. The June submission deemed a DB layer out of scope ("Requires internal database access — outside scope of this exercise") — I disagreed, so this version builds the database: every run ingests both layers into `artifacts/hn-mirror.db` and asserts sort integrity, uniqueness, data quality, and cross-layer agreement at the SQL level.
+- **Full testing pyramid.** 50 Vitest unit tests over the suite's own pure logic, backed by an enforced `v8` coverage threshold (`npm run test:unit` fails the build if it regresses) so the test-count claim is backed by data instead of asserted — see [Unit coverage](#unit-coverage) below. API validation runs against two independent oracles (HN's Firebase API reconciled with Algolia's `search_by_date`), UI validation through a Page Object Model, and a SQLite mirror that re-validates the sort in raw SQL. The June submission deemed a DB layer out of scope ("Requires internal database access — outside scope of this exercise") — I disagreed, so this version builds the database: every run ingests both layers into `artifacts/hn-mirror.db` and asserts sort integrity, uniqueness, data quality, and cross-layer agreement at the SQL level.
 - **Zero non-deterministic waits.** No `networkidle`, no sleeps. Pagination waits on the first story row's id changing — an auto-retrying assertion on the thing we actually need.
 - **Deliberate resilience.** Exponential backoff with jitter and a hard attempt cap (`helpers/withBackoff.ts`) handles HN's "Sorry" rate-limit page and transient network errors; a persistently blocked run fails loudly with a clear message instead of hanging.
 - **Pagination drift classification.** HN inserts new stories mid-run, shifting items across page boundaries. Story-id tracking distinguishes that environmental drift from an actual sort defect, classifies it in the diagnostics, and excludes it from analysis — flake source and product defect are never conflated.
@@ -58,7 +58,7 @@ HN rate-limits per IP. If the /newest scrape reports HN's rate-limit ("Sorry") p
 | ----------------------- | ------------------------------------------------------------------- |
 | `npm test`              | Full Playwright suite: UI, API, list pages, a11y, DB mirror         |
 | `npm run test:all`      | Unit layer first (free, fails fastest), then the full suite         |
-| `npm run test:unit`     | Vitest over the pure helpers                                        |
+| `npm run test:unit`     | Vitest over the pure helpers, with `v8` coverage enforced           |
 | `npm run test:ui`       | /newest UI sort validation only                                     |
 | `npm run test:api`      | Firebase + Algolia API validation only                              |
 | `npm run test:db`       | SQLite mirror ingestion + SQL assertions only                       |
@@ -69,6 +69,12 @@ HN rate-limits per IP. If the /newest scrape reports HN's rate-limit ("Sorry") p
 | `npm run lint`          | ESLint — mechanically enforces the style rules in CLAUDE.md         |
 
 CI runs typecheck + lint + unit tests on every push; the full suite is manual-dispatch only so CI never hammers a live production site.
+
+## Unit coverage
+
+`npm run test:unit` runs Vitest with the `@vitest/coverage-v8` provider against the five files that hold this suite's pure logic (`helpers/sortAnalysis.ts`, `helpers/structureAnalysis.ts`, `helpers/a11yAnalysis.ts`, `helpers/withBackoff.ts`, `helpers/settleRateLimit.ts`) and fails the build below a global threshold (`vitest.config.ts`). `helpers/getAlgoliaRecords.ts`, `getApiRecords.ts`, `getArticleRecords.ts`, `getListRows.ts`, and `attachEvidence.ts` are excluded from that scope on purpose — they orchestrate a live Playwright `Page`/`APIRequestContext` and are exercised by the Playwright specs in `tests/`, not by Vitest.
+
+The threshold is set at the current measured baseline, not an aspirational number: `a11yAnalysis.ts`, `withBackoff.ts`, and `settleRateLimit.ts` are fully covered, but `sortAnalysis.ts`'s cross-source reconciliation functions (`reconcileRecencyOrder`, `formatReconciliation`, `formatViolation`, `formatViolationReport`) and `structureAnalysis.ts`'s `analyzeListStructure`/`formatStructureIssues` are exercised end-to-end by `tests/list-pages.spec.ts` and `tests/api.spec.ts` but have no dedicated Vitest specs yet. That gap is tracked in `GAPS.md` rather than hidden behind a lowered bar — the point of a threshold is that it can't silently regress further, not that it retroactively pretends the suite is more unit-tested than it is.
 
 ## Decisions worth reading
 
