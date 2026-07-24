@@ -15,8 +15,8 @@ export default defineConfig({
         "helpers/structureAnalysis.ts",
       ],
       thresholds: {
-        statements: 99,
-        branches: 98,
+        statements: 100,
+        branches: 100,
         functions: 100,
         lines: 100,
       },

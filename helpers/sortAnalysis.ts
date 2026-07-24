@@ -82,15 +82,18 @@ export function reconcileRecencyOrder(
   b: ArticleRecord[],
 ): SourceReconciliation {
   const bById = new Map(b.map((record) => [record.id, record]));
-  const shared = a.filter((record) => bById.has(record.id));
+  const shared: { a: ArticleRecord; b: ArticleRecord }[] = [];
+  for (const record of a) {
+    const match = bById.get(record.id);
+    if (match) shared.push({ a: record, b: match });
+  }
   const disagreements: RecencyDisagreement[] = [];
   for (let i = 0; i < shared.length; i++) {
     for (let j = i + 1; j < shared.length; j++) {
-      const first = shared[i];
-      const second = shared[j];
-      const bFirst = bById.get(first.id);
-      const bSecond = bById.get(second.id);
-      if (!bFirst || !bSecond) continue;
+      const first = shared[i].a;
+      const second = shared[j].a;
+      const bFirst = shared[i].b;
+      const bSecond = shared[j].b;
       if (first.unixTime === second.unixTime) continue;
       if (bFirst.unixTime === bSecond.unixTime) continue;
       if (bFirst.rank > bSecond.rank) {

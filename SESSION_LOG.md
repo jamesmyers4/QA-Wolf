@@ -535,3 +535,26 @@ A take-home-sized `devDependencies` tree turns up low/moderate advisories in tra
 ### Verification
 
 `npm run audit`: 0 vulnerabilities. `npx tsc --noEmit` clean. `npm run lint` clean. GAPS.md item 5 removed (items 4 and 7 remain, both previously out-of-scope-by-design). README.md's script table and CI-summary line updated to mention `npm run audit` and Dependabot; new bullet added under "Technical ability" in the guided tour. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, `helpers/`, or `db/` — only CI config, a new Dependabot config file, and docs.
+
+---
+
+## 2026-07-24 — GAPS Item 7: Unreachable Guard in `reconcileRecencyOrder`
+
+### Overview
+
+GAPS.md's item 7 flagged `helpers/sortAnalysis.ts`'s `reconcileRecencyOrder`: the inner-loop guard `if (!bFirst || !bSecond) continue;` could never fire, because `shared` was already filtered to ids present in `bById` before the two `Map.get` calls that guard was protecting. It was the one branch behind the 98%-branches threshold set in the 2026-07-24 a11y session (item 6) explicitly because fixing it was out of that session's scope. Fixed it here: deleted the dead guard by restructuring the lookup so it's provably impossible instead of runtime-checked.
+
+### Key Decisions
+
+**Pair `a`/`b` records once during the filter, not twice per comparison**
+The old code filtered `a` down to shared ids, then re-looked-up both sides of every pairwise comparison from `bById` — two `Map.get` calls per pair, each theoretically returning `undefined` even though the filter already guaranteed a hit. Replaced `shared: ArticleRecord[]` with `shared: { a: ArticleRecord; b: ArticleRecord }[]`, built in one pass over `a` that only pushes when `bById.get` succeeds. The nested comparison loop then reads `shared[i].b` / `shared[j].b` directly — no re-lookup, no `undefined` possible, no guard needed. `sharedCount` still reads `shared.length`, so the public `SourceReconciliation` shape is unchanged.
+
+**Deleted the guard rather than keeping it as "intentional defense-in-depth"**
+GAPS.md item 7 offered both options. Chose deletion: the guard wasn't defending against anything a caller could trigger — `reconcileRecencyOrder` builds `bById` from its own `b` argument, so there's no code path where the pairing logic can diverge from the map it was built from. A branch with no reachable path just cost coverage without buying safety.
+
+**Tightened `vitest.config.ts` thresholds from 99/98/100/100 to 100/100/100/100**
+With the only unreachable branch gone, all five in-scope helper files measure a genuine 100% on every metric. Left the threshold below 100 would have quietly permitted future coverage regressions in files that currently have none.
+
+### Verification
+
+`npx vitest run --coverage` (`npm run test:unit`): 80 tests across 6 files, all green, coverage 100%/100%/100%/100%, meeting the new 100/100/100/100 thresholds exactly. `npx tsc --noEmit` clean. `npm run lint` clean. `npx playwright test --project=chromium tests/api.spec.ts` (the one live spec that calls `reconcileRecencyOrder` against real HN/Algolia data) — 2 passed, 0 violations, confirming the refactor didn't change observable behavior. Full `npm test` (chromium + db projects) not run this session — the change is confined to one pure helper already covered end-to-end by the unit suite and the targeted API spec; re-running UI/db specs against live HN would add request volume with no additional signal for this fix. GAPS.md item 7 removed (item 4 remains, previously out-of-scope-by-design). README.md's "Unit coverage" section updated to state the 100% threshold is met exactly and describe the fix.
