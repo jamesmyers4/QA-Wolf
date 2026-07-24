@@ -10,10 +10,6 @@ Findings from a full-repo pass measuring this suite against what a senior SDET w
 
 Traces read as one flat block per test rather than named phases (goto → scrape → analyze → attach). Low priority since `clientSummaryReporter` already tells the client-readable story — this would only sharpen the raw Playwright trace viewer.
 
-### 5. No supply-chain hygiene automation
-
-No Dependabot config, no `npm audit` step in `.github/workflows/tests.yml`. Consistent with the "treat it like production" framing but easy to skip for a take-home of this size.
-
 ### 7. Defensive-but-unreachable guard in `reconcileRecencyOrder`
 
 `helpers/sortAnalysis.ts:93` (`if (!bFirst || !bSecond) continue;`) can never be true: `shared` is already filtered to ids present in `bById`, so both lookups always succeed. Noticed while writing the reconciliation specs for gap 6 — it's the one branch left uncovered in that function's coverage report. Not a bug, just defensive code with no live path; left untouched since removing it wasn't part of that session's task.

@@ -512,3 +512,26 @@ Post-fix, the five in-scope files measure 99.32% statements / 98.79% branches / 
 ### Verification
 
 `npx vitest run --coverage`: 80 tests across 6 files, all green (up from 77); coverage 99.32%/98.79%/100%/100%, comfortably above the new 99/98/100/100 thresholds. `npx tsc --noEmit` clean. `npm run lint` clean. GAPS.md item 6 removed (items 4, 5, 7 remain, all previously out-of-scope-by-design). README.md's "Unit coverage" section updated to drop the now-fixed a11y caveat and reflect the new branch percentage, with a pointer to GAPS.md item 7 for the one remaining gap. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, `helpers/` runtime logic, or `db/`, only a Vitest spec file and its config threshold.
+
+---
+
+## 2026-07-24 — GAPS Item 5: Supply-Chain Hygiene Automation
+
+### Overview
+
+GAPS.md's item 5 called out that the repo had no Dependabot config and no `npm audit` step in CI — a gap against the "treat it like production" framing, even though it's easy to skip for a take-home this size. Added an `npm run audit` script (`npm audit --audit-level=high`), wired it into the `unit` job in `.github/workflows/tests.yml` right after `test:unit`, and added `.github/dependabot.yml` covering both the `npm` and `github-actions` ecosystems on a weekly schedule.
+
+### Key Decisions
+
+**Audit runs in the existing `unit` job, not a new job**
+The `unit` job already runs on every push with zero HN traffic (typecheck, lint, unit tests); `npm audit` reads only the local lockfile against npm's advisory database, so it belongs next to those steps rather than justifying a whole new job. The `full-suite` job stays untouched — it's manual-dispatch-only by design because it hits live Hacker News, and dependency auditing has nothing to do with that constraint.
+
+**`--audit-level=high` instead of the default (`low`)**
+A take-home-sized `devDependencies` tree turns up low/moderate advisories in transitive dependencies fairly often, none of which are actionable same-day. Failing CI on every low-severity transitive finding would train Jimmy to ignore red builds; gating on high/critical keeps the check meaningful. Current tree: `npm audit --audit-level=high` reports 0 vulnerabilities.
+
+**Dependabot covers `github-actions` as well as `npm`**
+`.github/workflows/tests.yml` pins `actions/checkout@v4`, `actions/setup-node@v4`, and `actions/upload-artifact@v4` — those are dependencies too, and an unpinned/stale Action is as much a supply-chain surface as an npm package. Weekly interval matches `npm audit` running on every push; Dependabot's own PRs still go through the full `unit` job (typecheck/lint/unit/audit) before Jimmy would merge them.
+
+### Verification
+
+`npm run audit`: 0 vulnerabilities. `npx tsc --noEmit` clean. `npm run lint` clean. GAPS.md item 5 removed (items 4 and 7 remain, both previously out-of-scope-by-design). README.md's script table and CI-summary line updated to mention `npm run audit` and Dependabot; new bullet added under "Technical ability" in the guided tour. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, `helpers/`, or `db/` — only CI config, a new Dependabot config file, and docs.

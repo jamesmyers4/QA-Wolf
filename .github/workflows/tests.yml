@@ -20,6 +20,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:unit
+      - run: npm run audit
 
   full-suite:
     # The full Playwright suite hits live Hacker News. Running it on every push
