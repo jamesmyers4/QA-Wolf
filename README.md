@@ -11,6 +11,7 @@ The assignment: validate that exactly the first 100 articles on [Hacker News /ne
 - **Zero non-deterministic waits.** No `networkidle`, no sleeps. Pagination waits on the first story row's id changing — an auto-retrying assertion on the thing we actually need.
 - **Deliberate resilience.** Exponential backoff with jitter and a hard attempt cap (`helpers/withBackoff.ts`) handles HN's "Sorry" rate-limit page and transient network errors; a persistently blocked run fails loudly with a clear message instead of hanging.
 - **Pagination drift classification.** HN inserts new stories mid-run, shifting items across page boundaries. Story-id tracking distinguishes that environmental drift from an actual sort defect, classifies it in the diagnostics, and excludes it from analysis — flake source and product defect are never conflated.
+- **Style rules are enforced, not just documented.** `npm run lint` runs ESLint with two local rules (`eslint-rules/`) that mechanically check this repo's own conventions — zero comments, zero blank lines inside a function — instead of leaving them to depend on code review; wired into CI alongside `typecheck`.
 
 ### Customer service orientation
 
@@ -65,8 +66,9 @@ HN rate-limits per IP. If the /newest scrape reports HN's rate-limit ("Sorry") p
 | `npm run test:a11y`     | Axe scan of /newest against the committed baseline                  |
 | `npm run demo:fail`     | On-demand failure diagnostics from a shuffled fixture (exits 1)     |
 | `npm run typecheck`     | `tsc --noEmit` under strict mode                                    |
+| `npm run lint`          | ESLint — mechanically enforces the style rules in CLAUDE.md         |
 
-CI runs typecheck + unit tests on every push; the full suite is manual-dispatch only so CI never hammers a live production site.
+CI runs typecheck + lint + unit tests on every push; the full suite is manual-dispatch only so CI never hammers a live production site.
 
 ## Decisions worth reading
 

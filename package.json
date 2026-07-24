@@ -17,12 +17,17 @@
     "test:unit": "vitest run",
     "test:all": "npm run test:unit && npm test",
     "demo:fail": "playwright test --project=demo-fail",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
+    "@babel/core": "^8.0.1",
+    "@babel/eslint-parser": "^8.0.1",
+    "@babel/preset-typescript": "^8.0.1",
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
+    "eslint": "^10.7.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }

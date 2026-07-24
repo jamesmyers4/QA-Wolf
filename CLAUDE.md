@@ -32,6 +32,8 @@ The planned buildout is COMPLETE: Sessions 1–6, a pending-fixes pass, the tree
 - Strict TypeScript: no `any` unless unavoidable, explicit return types on exported functions.
 - Prefer web-first assertions and auto-waiting locators. No `waitForLoadState('networkidle')`, no bare `waitForTimeout` except inside the deliberate backoff utility.
 
+The no-comments and no-blank-lines-inside-a-function rules above are mechanically enforced by `npm run lint` (`eslint.config.js` + two local rules in `eslint-rules/`), wired into CI — see SESSION_LOG.md's 2026-07-24 entry for why the setup uses a Babel parser instead of `typescript-eslint`. The `describe()` callback body in Vitest spec files is treated as top-level, organizational grouping, not "inside a function" — blank lines between sibling `it()` calls are allowed there, matching the existing style of every file in `unit/`.
+
 ## Architecture conventions
 
 ```

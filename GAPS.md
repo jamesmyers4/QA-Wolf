@@ -4,13 +4,6 @@ Findings from a full-repo pass measuring this suite against what a senior SDET w
 
 ## Real gaps
 
-### 2. Style rules are documented but not mechanically enforced
-
-CLAUDE.md hard-codes real conventions (no comments, no blank lines mid-function, one blank line between blocks). Nothing enforces them — `tsc --noEmit` only checks types. No ESLint/Prettier appears in `package.json` or CI.
-
-**Criterion:** Technical ability — a suite that claims production-grade discipline should have that discipline survive past code review, not depend on it.
-**Fix:** add an ESLint config (or a lightweight custom rule) and a `typecheck`-adjacent CI step.
-
 ### 3. No coverage signal on the unit layer
 
 43 Vitest tests exist over the pure-logic helpers, but there's no `--coverage` run or threshold anywhere (`vitest.config.ts` has none, `package.json` has no coverage script).
