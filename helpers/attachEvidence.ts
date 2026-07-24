@@ -1,5 +1,5 @@
 import type { TestInfo } from "@playwright/test";
-import type { ArticleRecord, SortAnalysis } from "./sortAnalysis";
+import { formatRecordsTable, type ArticleRecord, type SortAnalysis } from "./sortAnalysis";
 
 export async function attachEvidence(
   testInfo: TestInfo,
@@ -13,5 +13,9 @@ export async function attachEvidence(
   await testInfo.attach("sort-analysis.json", {
     body: JSON.stringify(analysis, null, 2),
     contentType: "application/json",
+  });
+  await testInfo.attach("sorted-records.md", {
+    body: formatRecordsTable(records),
+    contentType: "text/markdown",
   });
 }

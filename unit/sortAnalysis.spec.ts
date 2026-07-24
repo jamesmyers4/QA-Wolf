@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeSortOrder,
+  formatRecordsTable,
   type ArticleRecord,
 } from "../helpers/sortAnalysis";
 
@@ -88,5 +89,27 @@ describe("analyzeSortOrder", () => {
     expect(analysis.newestIso).toBe(articles[0].isoTimestamp);
     expect(analysis.oldestIso).toBe(articles[4].isoTimestamp);
     expect(analysis.spanMinutes).toBe(4);
+  });
+});
+
+describe("formatRecordsTable", () => {
+  it("renders one markdown row per record in rank order", () => {
+    const table = formatRecordsTable(descending(3));
+    const lines = table.split("\n");
+    expect(lines[0]).toBe("| Rank | Title | Posted (UTC) |");
+    expect(lines[1]).toBe("| --- | --- | --- |");
+    expect(lines).toHaveLength(5);
+    expect(lines[2]).toContain("| 1 | Story 1 |");
+    expect(lines[4]).toContain("| 3 | Story 3 |");
+  });
+
+  it("escapes pipe characters in titles so they don't break the table", () => {
+    const [record] = descending(1);
+    const table = formatRecordsTable([{ ...record, title: "A | B" }]);
+    expect(table).toContain("A \\| B");
+  });
+
+  it("returns just the header for an empty list", () => {
+    expect(formatRecordsTable([]).split("\n")).toHaveLength(2);
   });
 });

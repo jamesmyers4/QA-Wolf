@@ -21,6 +21,7 @@ interface SummaryEntry {
   analysis: SortAnalysis | undefined;
   driftCount: number;
   a11y: A11ySummary | undefined;
+  recordsTable: string | undefined;
 }
 
 const DIVIDER = "─".repeat(72);
@@ -89,6 +90,12 @@ class ClientSummaryReporter implements Reporter {
     const a11y = a11yAttachment?.body
       ? (JSON.parse(a11yAttachment.body.toString("utf-8")) as A11ySummary)
       : undefined;
+    const recordsTableAttachment = result.attachments.find(
+      (candidate) => candidate.name === "sorted-records.md",
+    );
+    const recordsTable = recordsTableAttachment?.body
+      ? recordsTableAttachment.body.toString("utf-8")
+      : undefined;
     this.entries.push({
       title: test.title,
       status: result.status,
@@ -96,6 +103,7 @@ class ClientSummaryReporter implements Reporter {
       analysis,
       driftCount,
       a11y,
+      recordsTable,
     });
   }
 
@@ -117,6 +125,9 @@ class ClientSummaryReporter implements Reporter {
     console.log(`\n${block}`);
     const artifactsDir = join(this.rootDir, "artifacts");
     mkdirSync(artifactsDir, { recursive: true });
+    const recordsSections = this.entries
+      .filter((entry) => entry.recordsTable)
+      .map((entry) => `### Full sorted list — ${entry.title}\n\n${entry.recordsTable}`);
     const markdown = [
       "# Hacker News /newest — Sort Validation Summary",
       "",
@@ -125,6 +136,8 @@ class ClientSummaryReporter implements Reporter {
       headline,
       "",
       ...lines.map((line) => `- ${line.replace(/\n/g, "\n  ")}`),
+      "",
+      ...recordsSections,
       "",
       "_Full technical detail (traces, screenshots, raw JSON evidence) lives in `artifacts/html-report`._",
       "",

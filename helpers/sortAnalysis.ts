@@ -142,3 +142,12 @@ export function formatViolationReport(analysis: SortAnalysis): string {
   );
   return `${analysis.violations.length} of ${analysis.total} articles appear out of order (each listed article is newer than the one ranked above it):\n${lines.join("\n")}`;
 }
+
+export function formatRecordsTable(records: ArticleRecord[]): string {
+  const header = "| Rank | Title | Posted (UTC) |\n| --- | --- | --- |";
+  const rows = records.map(
+    (record) =>
+      `| ${record.rank} | ${record.title.replace(/\|/g, "\\|")} | ${record.isoTimestamp} |`,
+  );
+  return [header, ...rows].join("\n");
+}
