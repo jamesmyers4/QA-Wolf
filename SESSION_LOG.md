@@ -486,3 +486,29 @@ Post-fix, the five in-scope files measure 99.32% statements / 93.97% branches / 
 ### Verification
 
 `npx vitest run --coverage`: 77 tests across 6 files, all green (up from 50 tests/5 files); coverage 99.32%/93.97%/100%/100%, comfortably above the new thresholds. `npx tsc --noEmit` clean. `npm run lint` clean. GAPS.md item 6 removed (no items remain under "Minor / optional" beyond 4 and 5, which were left untouched as out of scope for this session). README.md's "Unit coverage" section rewritten to reflect full coverage of all five in-scope files instead of naming the gap. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, `helpers/` runtime logic, or `db/`, only new/extended Vitest specs and their config threshold.
+
+---
+
+## 2026-07-24 — GAPS Item 6: a11yAnalysis.ts Branch Coverage
+
+### Overview
+
+GAPS.md's item 6 (opened as a byproduct of closing the previous item 6, sortAnalysis/structureAnalysis specs) named `a11yAnalysis.ts` sitting at 100% statement/line/function coverage but only 77.77% branch coverage. Three branch groups had no dedicated case: `serializeTarget`'s array-vs-non-array ternary, `extractFindings`'s nullish-coalescing fallbacks for `impact`/`help`, and `formatA11yComparison`'s singular/plural wording for new-violation count. Added four cases to `unit/a11yAnalysis.spec.ts` and raised `vitest.config.ts`'s global branch threshold from 93 to 98.
+
+### Key Decisions
+
+**A nested-array target needed a real fixture, not a type-cast**
+`serializeTarget`'s `Array.isArray(part) ? part.join(" >> ") : String(part)` only diverges when a `target` entry is itself an array — axe emits this for cross-frame/shadow-DOM nodes, where `target` looks like `[["iframe.ad"], "div.content"]`. The existing `violation()` test helper only ever built single-level string targets, so no case in the suite could reach the `true` branch. Added a case constructing a raw `RawAxeViolation` directly (bypassing the helper) with a nested first frame, asserting the output joins with `" >> "` rather than stringifying the array as `[object Object]`.
+
+**Missing-field fallback needed an object omitting the fields, not `undefined` passed explicitly**
+`violation.impact ?? "unknown"` and `violation.help ?? violation.id` only exercise their fallback when the field is absent or nullish; the test helper always supplied both. Added a raw violation object with no `impact`/`help` keys at all, asserting the finding falls back to `"unknown"` and the rule id respectively — the realistic shape axe actually produces when a rule doesn't report impact.
+
+**Plural branch needed two new findings, not one**
+`formatA11yComparison`'s `newFindings.length === 1 ? "violation" : "violations"` had only ever been exercised at `length === 1` (singular) and `length === 0` (the other branch of the outer `if`, using known/resolved counts). Added a two-finding case asserting `"2 new accessibility violations"` and that both numbered lines render in order.
+
+**Threshold raised to 98, not 100**
+Post-fix, the five in-scope files measure 99.32% statements / 98.79% branches / 100% functions / 100% lines — `a11yAnalysis.ts` itself is now full coverage on all four metrics. The one remaining gap, `sortAnalysis.ts:93`'s unreachable `!bFirst || !bSecond` guard, is GAPS.md item 7 and out of scope here since item 6 named only `a11yAnalysis.ts`. Set the global threshold to 98 (below the measured 98.79) rather than 100, since forcing 100 would require either touching item 7's file or fabricating a broken `Map` to hit a branch that can't occur with real data.
+
+### Verification
+
+`npx vitest run --coverage`: 80 tests across 6 files, all green (up from 77); coverage 99.32%/98.79%/100%/100%, comfortably above the new 99/98/100/100 thresholds. `npx tsc --noEmit` clean. `npm run lint` clean. GAPS.md item 6 removed (items 4, 5, 7 remain, all previously out-of-scope-by-design). README.md's "Unit coverage" section updated to drop the now-fixed a11y caveat and reflect the new branch percentage, with a pointer to GAPS.md item 7 for the one remaining gap. The full Playwright suite was not run this session: nothing touched `tests/`, `pages/`, `helpers/` runtime logic, or `db/`, only a Vitest spec file and its config threshold.

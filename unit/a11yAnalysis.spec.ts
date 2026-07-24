@@ -79,6 +79,29 @@ describe("extractFindings", () => {
     ]);
     expect(findings).toHaveLength(3);
   });
+
+  it("joins a nested target frame (iframe/shadow root) with >> instead of stringifying the array", () => {
+    const findings = extractFindings([
+      {
+        id: "frame-title",
+        impact: "serious",
+        help: "Frames must have a title",
+        nodes: [{ target: [["iframe.ad"], "div.content"] }],
+      },
+    ]);
+    expect(findings[0].target).toBe("iframe.ad div.content");
+  });
+
+  it("falls back to unknown impact and the rule id as help when axe omits them", () => {
+    const findings = extractFindings([
+      {
+        id: "region",
+        nodes: [{ target: ["main"] }],
+      },
+    ]);
+    expect(findings[0].impact).toBe("unknown");
+    expect(findings[0].help).toBe("region");
+  });
 });
 
 describe("compareToBaseline", () => {
@@ -167,5 +190,26 @@ describe("formatA11yComparison", () => {
     expect(summary).toContain(
       '1. New "image-alt" violation (impact: critical) at img.hnlogo — Images must have alternative text',
     );
+  });
+
+  it("uses plural grammar and numbers each line for multiple new violations", () => {
+    const findings = [
+      {
+        ruleId: "image-alt",
+        target: "img.hnlogo",
+        impact: "critical",
+        help: "Images must have alternative text",
+      },
+      {
+        ruleId: "region",
+        target: "main",
+        impact: "moderate",
+        help: "All content should be in a landmark",
+      },
+    ];
+    const summary = formatA11yComparison(comparison({ newFindings: findings }));
+    expect(summary).toContain("2 new accessibility violations on /newest");
+    expect(summary).toContain('1. New "image-alt"');
+    expect(summary).toContain('2. New "region"');
   });
 });
