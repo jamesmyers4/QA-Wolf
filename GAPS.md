@@ -6,7 +6,3 @@ Findings from a full-repo pass measuring this suite against what a senior SDET w
 
 ## Minor / optional
 
-### 4. No `test.step()` segmentation in specs
-
-Traces read as one flat block per test rather than named phases (goto → scrape → analyze → attach). Low priority since `clientSummaryReporter` already tells the client-readable story — this would only sharpen the raw Playwright trace viewer.
-

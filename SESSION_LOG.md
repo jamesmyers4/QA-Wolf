@@ -558,3 +558,26 @@ With the only unreachable branch gone, all five in-scope helper files measure a 
 ### Verification
 
 `npx vitest run --coverage` (`npm run test:unit`): 80 tests across 6 files, all green, coverage 100%/100%/100%/100%, meeting the new 100/100/100/100 thresholds exactly. `npx tsc --noEmit` clean. `npm run lint` clean. `npx playwright test --project=chromium tests/api.spec.ts` (the one live spec that calls `reconcileRecencyOrder` against real HN/Algolia data) — 2 passed, 0 violations, confirming the refactor didn't change observable behavior. Full `npm test` (chromium + db projects) not run this session — the change is confined to one pure helper already covered end-to-end by the unit suite and the targeted API spec; re-running UI/db specs against live HN would add request volume with no additional signal for this fix. GAPS.md item 7 removed (item 4 remains, previously out-of-scope-by-design). README.md's "Unit coverage" section updated to state the 100% threshold is met exactly and describe the fix.
+
+---
+
+## 2026-07-24 — GAPS Item 4: `test.step()` Segmentation in Specs
+
+### Overview
+
+GAPS.md's item 4 (the last item on the list) called out that traces read as one flat block per test instead of named phases — goto, scrape, analyze, attach were all interleaved with no boundary a reviewer could see in the raw Playwright trace viewer. Wrapped the phase-shaped work in `test.step()` across `tests/ui.spec.ts`, `tests/api.spec.ts`, `tests/list-pages.spec.ts`, and `tests/a11y.spec.ts`.
+
+### Key Decisions
+
+**`db.spec.ts` and `demo-fail.spec.ts` left untouched, deliberately**
+`db.spec.ts`'s scrape/ingest work already lives in a shared `beforeAll`, and each of its five test bodies is a single query-plus-assert pair — there's no flat multi-phase block to segment, since the test itself already is the "phase" the gap description was asking to isolate. `demo-fail.spec.ts` is an opt-in fixture-driven demo with one four-line body; adding steps there would be ceremony around a test whose entire purpose is a single fast failure, not a trace someone debugs.
+
+**Steps named after the phase, not the implementation**
+Each step callback returns its value (`await test.step("scrape 100 articles", async () => { return getArticleRecords(page, 100); })`) rather than assigning inside and reading outside, so the trace's step name is the only thing a reviewer needs to understand what happened — matching the same client-readable-diagnostics principle the rest of the suite already follows for assertion messages. `list-pages.spec.ts`'s shared `checkPageOneStructure` helper and its standalone pagination test both got the same four-phase shape (goto/scrape → attach → analyze) since the gap explicitly named that phase sequence.
+
+**No lint changes needed — `test.step` callbacks are ordinary blocks**
+`eslint-rules/no-blank-line-in-block.js` walks every `BlockStatement`, which already covers `test.step`'s arrow-function bodies with no special-casing required; the no-blank-lines-inside-a-function rule applies inside a step callback exactly as it does inside the test body itself. Confirmed via `npm run lint` after the edits — zero problems.
+
+### Verification
+
+`npx tsc --noEmit` clean. `npm run lint` clean. Ran all four touched specs live against HN: `npm run test:ui` (1 passed, 100/100, 0 violations), `npm run test:api` (2 passed), `npm run test:list` (4 passed), `npm run test:a11y` (1 passed, 0 new violations vs baseline) — no rate-limit interference. `db.spec.ts` not re-run since it wasn't touched. GAPS.md item 4 removed — the list is now empty. README.md's "Evidence attached everywhere" bullet in the Customer service orientation section gained a companion bullet naming the four instrumented specs and the goto → scrape/fetch → analyze → attach phase pattern.

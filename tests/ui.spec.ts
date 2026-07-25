@@ -8,21 +8,29 @@ test("first 100 HN newest articles are sorted from newest to oldest", async ({
   page,
 }, testInfo) => {
   const hn = new HNNewestPage(page);
-  await hn.goto();
-  await expect(page).toHaveURL(/newest/);
-  const { records, driftEvents } = await getArticleRecords(page, 100);
-  const analysis = analyzeSortOrder(records);
-  await attachEvidence(testInfo, records, analysis);
-  await testInfo.attach("pagination-drift.json", {
-    body: JSON.stringify(driftEvents, null, 2),
-    contentType: "application/json",
+  await test.step("goto /newest", async () => {
+    await hn.goto();
+    await expect(page).toHaveURL(/newest/);
   });
-  if (!analysis.sorted) {
-    await testInfo.attach("newest-page.png", {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: "image/png",
+  const { records, driftEvents } = await test.step("scrape 100 articles", async () => {
+    return getArticleRecords(page, 100);
+  });
+  const analysis = await test.step("analyze sort order", async () => {
+    return analyzeSortOrder(records);
+  });
+  await test.step("attach evidence", async () => {
+    await attachEvidence(testInfo, records, analysis);
+    await testInfo.attach("pagination-drift.json", {
+      body: JSON.stringify(driftEvents, null, 2),
+      contentType: "application/json",
     });
-  }
+    if (!analysis.sorted) {
+      await testInfo.attach("newest-page.png", {
+        body: await page.screenshot({ fullPage: true }),
+        contentType: "image/png",
+      });
+    }
+  });
   expect(
     records,
     `Expected 100 articles from /newest but collected ${records.length}`,

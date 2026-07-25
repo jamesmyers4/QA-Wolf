@@ -29,14 +29,22 @@ async function checkPageOneStructure(
   pageName: string,
   testInfo: TestInfo,
 ): Promise<void> {
-  await list.goto();
-  const rows = await getListRows(page, list, 30);
-  await attachRows(testInfo, "list-rows.json", rows);
+  await test.step(`goto ${pageName}`, async () => {
+    await list.goto();
+  });
+  const rows = await test.step(`scrape ${pageName}`, async () => {
+    return getListRows(page, list, 30);
+  });
+  await test.step(`attach ${pageName} rows`, async () => {
+    await attachRows(testInfo, "list-rows.json", rows);
+  });
   expect(
     rows.length,
     `Page one of ${pageName} rendered no story rows at all`,
   ).toBeGreaterThan(0);
-  const issues = analyzeListStructure(rows, false);
+  const issues = await test.step(`analyze ${pageName} structure`, async () => {
+    return analyzeListStructure(rows, false);
+  });
   expect(issues.length, formatStructureIssues(pageName, issues)).toBe(0);
 }
 
@@ -62,12 +70,18 @@ test("/newest rank labels track position across pagination and every story is at
   page,
 }, testInfo) => {
   const hn = new HNNewestPage(page);
-  await hn.goto();
-  const pageOne = await getListRows(page, hn, 30, 1);
-  await gotoNextPage(page, hn);
-  const pageTwo = await getListRows(page, hn, 30, 31);
-  await attachRows(testInfo, "newest-page-one-rows.json", pageOne);
-  await attachRows(testInfo, "newest-page-two-rows.json", pageTwo);
+  const pageOne = await test.step("goto and scrape /newest page one", async () => {
+    await hn.goto();
+    return getListRows(page, hn, 30, 1);
+  });
+  const pageTwo = await test.step("paginate and scrape /newest page two", async () => {
+    await gotoNextPage(page, hn);
+    return getListRows(page, hn, 30, 31);
+  });
+  await test.step("attach rows", async () => {
+    await attachRows(testInfo, "newest-page-one-rows.json", pageOne);
+    await attachRows(testInfo, "newest-page-two-rows.json", pageTwo);
+  });
   expect(
     pageOne.length,
     `Expected 30 stories on page one of /newest but found ${pageOne.length}`,
@@ -76,9 +90,11 @@ test("/newest rank labels track position across pagination and every story is at
     pageTwo.length,
     `Expected 30 stories on page two of /newest but found ${pageTwo.length}`,
   ).toBe(30);
-  const issues = [
-    ...analyzeListStructure(pageOne, true),
-    ...analyzeListStructure(pageTwo, true),
-  ];
+  const issues = await test.step("analyze structure across both pages", async () => {
+    return [
+      ...analyzeListStructure(pageOne, true),
+      ...analyzeListStructure(pageTwo, true),
+    ];
+  });
   expect(issues.length, formatStructureIssues("/newest", issues)).toBe(0);
 });

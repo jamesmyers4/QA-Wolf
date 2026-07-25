@@ -19,8 +19,12 @@ test.beforeAll(async () => {
 });
 
 test("HN API returns newest stories in descending order", async ({}, testInfo) => {
-  const analysis = analyzeSortOrder(firebaseRecords);
-  await attachEvidence(testInfo, firebaseRecords, analysis);
+  const analysis = await test.step("analyze sort order", async () => {
+    return analyzeSortOrder(firebaseRecords);
+  });
+  await test.step("attach evidence", async () => {
+    await attachEvidence(testInfo, firebaseRecords, analysis);
+  });
   expect(
     firebaseRecords,
     `Expected 100 stories from the HN API but collected ${firebaseRecords.length}`,
@@ -29,15 +33,21 @@ test("HN API returns newest stories in descending order", async ({}, testInfo) =
 });
 
 test("Firebase and Algolia APIs independently agree on recency order", async ({}, testInfo) => {
-  const algoliaRecords = await getAlgoliaRecords(100);
-  const reconciliation = reconcileRecencyOrder(firebaseRecords, algoliaRecords);
-  await testInfo.attach("algolia-records.json", {
-    body: JSON.stringify(algoliaRecords, null, 2),
-    contentType: "application/json",
+  const algoliaRecords = await test.step("fetch Algolia records", async () => {
+    return getAlgoliaRecords(100);
   });
-  await testInfo.attach("reconciliation.json", {
-    body: JSON.stringify(reconciliation, null, 2),
-    contentType: "application/json",
+  const reconciliation = await test.step("reconcile recency order", async () => {
+    return reconcileRecencyOrder(firebaseRecords, algoliaRecords);
+  });
+  await test.step("attach evidence", async () => {
+    await testInfo.attach("algolia-records.json", {
+      body: JSON.stringify(algoliaRecords, null, 2),
+      contentType: "application/json",
+    });
+    await testInfo.attach("reconciliation.json", {
+      body: JSON.stringify(reconciliation, null, 2),
+      contentType: "application/json",
+    });
   });
   expect(
     reconciliation.sharedCount,
