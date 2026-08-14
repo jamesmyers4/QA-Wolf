@@ -22,7 +22,7 @@
     "audit": "npm audit --audit-level=high"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
+    "@axe-core/playwright": "^4.13.0",
     "@babel/core": "^8.0.1",
     "@babel/eslint-parser": "^8.0.1",
     "@babel/preset-typescript": "^8.0.1",
